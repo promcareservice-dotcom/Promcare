@@ -1,0 +1,25 @@
+/* ใส่ใน index.css เพื่อเปลี่ยนลุคทั้งแอป */
+body {
+  margin: 0;
+  font-family: 'Inter', 'Sarabun', sans-serif; /* ฟอนต์ที่ดูสมัยใหม่และอ่านง่าย */
+  background-color: #0a0a0a;
+}
+
+/* เอฟเฟกต์เรืองแสงให้ปุ่ม (Vibrant Glow) */
+button {
+  transition: all 0.3s ease !important;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+  box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3); /* แสงสีแดงจางๆ */
+}
+
+/* สไตล์ Card ให้ดูมีมิติแบบ Glassmorphism */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
