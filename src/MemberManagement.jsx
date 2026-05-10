@@ -99,7 +99,7 @@ const MemberManagement = () => {
                   <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{member.fullname}</div>
                   <div style={{ color: '#ef4444', fontSize: '0.9rem' }}>@{member.username} | สิทธิ์: {member.role}</div>
                   <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '5px' }}>
-                    แก้ไขล่าสุด: {member.updated_at ? new Date(member.updated_at).toLocaleString('th-TH') : 'ไม่มีประวัติ'}
+                    แก้ไขล่าสุด:  {member.updated_at ? new Date(member.updated_at).toLocaleString('th-TH') : 'ไม่มีประวัติ'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
