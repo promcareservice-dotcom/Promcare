@@ -80,7 +80,7 @@ const MemberManagement = () => {
                   onChange={(e) => setEditForm({...editForm, fullname: e.target.value})}
                   style={{ background: '#222', color: 'white', padding: '8px', border: '1px solid #ef4444' }}
                 />
-                <select 
+                <select  
                   value={editForm.role} 
                   onChange={(e) => setEditForm({...editForm, role: e.target.value})}
                   style={{ background: '#222', color: 'white', padding: '8px' }}
