@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from './supabaseClient.js'; 
+import { supabase } from './supabaseClient.js'; // ใช้ ./ เพราะอยู่ใน src เหมือนกัน
 import { useNavigate } from 'react-router-dom';
 
 const RequestRepair = () => {
@@ -8,10 +8,6 @@ const RequestRepair = () => {
   const [formData, setFormData] = useState({
     customer_name: '',
     contact_number: '',
-    device_type: '',
-    brand: '',
-    model: '',
-    color: '',
     description: ''
   });
 
@@ -23,44 +19,39 @@ const RequestRepair = () => {
         .from('repair_tasks')
         .insert([{
           ...formData,
-          status: 'รอดำเนินการ'
+          status: 'รอดำเนินการ',
+          created_at: new Date().toISOString()
         }]);
 
       if (error) throw error;
-      alert('บันทึกข้อมูลแจ้งซ่อมสำเร็จ!');
+      alert('✅ บันทึกข้อมูลสำเร็จ! เจ้าหน้าที่จะติดต่อกลับโดยเร็ว');
       navigate('/');
     } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + err.message);
+      alert('❌ เกิดข้อผิดพลาด: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-md mx-auto bg-gray-900 p-8 rounded-2xl border border-gray-800 shadow-2xl">
-        <h2 className="text-2xl font-bold mb-6 text-red-500 text-center">แจ้งซ่อมอุปกรณ์</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input 
-            type="text" placeholder="ชื่อผู้แจ้ง" required
-            className="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white"
-            onChange={(e) => setFormData({...formData, customer_name: e.target.value})} 
-          />
-          <input 
-            type="text" placeholder="เบอร์โทรศัพท์" required
-            className="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white"
-            onChange={(e) => setFormData({...formData, contact_number: e.target.value})} 
-          />
-          <textarea 
-            placeholder="อาการเสีย" required
-            className="w-full p-3 h-32 rounded bg-gray-800 border border-gray-700 text-white"
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-          ></textarea>
-          <button 
-            type="submit" disabled={loading}
-            className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-xl font-bold transition-all"
-          >
-            {loading ? 'กำลังบันทึก...' : 'ยืนยันการส่งข้อมูล'}
+    <div style={{ backgroundColor: '#000', minHeight: '100vh', padding: '40px 20px', color: '#fff', fontFamily: 'sans-serif' }}>
+      <div style={{ maxWidth: '450px', margin: '0 auto', backgroundColor: '#111', padding: '30px', borderRadius: '12px', border: '1px solid #333' }}>
+        <h2 style={{ color: '#ff4d4d', textAlign: 'center', marginBottom: '25px' }}>ฟอร์มแจ้งซ่อมอุปกรณ์</h2>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <label>ชื่อผู้แจ้ง:</label>
+          <input type="text" required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+            onChange={(e) => setFormData({...formData, customer_name: e.target.value})} />
+          
+          <label>เบอร์โทรศัพท์:</label>
+          <input type="text" required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+            onChange={(e) => setFormData({...formData, contact_number: e.target.value})} />
+          
+          <label>รายละเอียดอาการเสีย:</label>
+          <textarea required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff', minHeight: '100px' }}
+            onChange={(e) => setFormData({...formData, description: e.target.value})} />
+          
+          <button type="submit" disabled={loading} style={{ marginTop: '10px', padding: '12px', backgroundColor: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>
+            {loading ? 'กำลังส่งข้อมูล...' : 'ส่งข้อมูลแจ้งซ่อม'}
           </button>
         </form>
       </div>

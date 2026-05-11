@@ -12,44 +12,30 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
-
+      // ใช้ระบบ Auth ของ Supabase
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      alert('เข้าสู่ระบบสำเร็จ');
+      alert('✅ เข้าสู่ระบบสำเร็จ');
       navigate('/admin'); 
     } catch (error) {
-      alert('เข้าสู่ระบบไม่สำเร็จ: ' + error.message);
+      alert('❌ เข้าสู่ระบบไม่สำเร็จ: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="bg-gray-900 p-8 rounded-2xl border border-gray-800 w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-white mb-6 text-center">Admin Login</h2>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input 
-            type="email" placeholder="อีเมลพนักงาน" required
-            className="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white"
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input 
-            type="password" placeholder="รหัสผ่าน" required
-            className="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button 
-            type="submit" disabled={loading}
-            className="w-full py-3 bg-red-600 text-white rounded-xl font-bold"
-          >
-            {loading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
-          </button>
-        </form>
-      </div>
+    <div style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <form onSubmit={handleLogin} style={{ backgroundColor: '#111', padding: '40px', borderRadius: '15px', border: '1px solid #333', width: '100%', maxWidth: '350px', color: '#fff' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>Admin Login</h2>
+        <input type="email" placeholder="อีเมล" required style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+          onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" placeholder="รหัสผ่าน" required style={{ width: '100%', padding: '12px', marginBottom: '25px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+          onChange={(e) => setPassword(e.target.value)} />
+        <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', backgroundColor: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}>
+          {loading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
+        </button>
+      </form>
     </div>
   );
 };
