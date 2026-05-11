@@ -20,11 +20,8 @@ const RequestRepair = () => {
 
   const deviceCategories = ["รถยนต์", "รถจักรยานยนต์", "เครื่องยนต์การเกษตร", "เครื่องตัดหญ้า", "แอร์", "ทีวี", "ตู้เย็น", "พัดลม"];
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0]);
-    }
-  };
+  // ตรวจสอบว่าเป็นกลุ่มยานพาหนะหรือไม่
+  const isVehicle = ["รถยนต์", "รถจักรยานยนต์", "เครื่องยนต์การเกษตร"].includes(formData.device_type);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,90 +30,103 @@ const RequestRepair = () => {
     try {
       let publicImageUrl = null;
 
-      // 1. จัดการเรื่องอัปโหลดรูป (ถ้ามี)
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `requests/${fileName}`;
-
+        const fileName = `${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from('repair-images')
-          .upload(filePath, imageFile);
+          .upload(`requests/${fileName}`, imageFile);
 
         if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from('repair-images')
-          .getPublicUrl(filePath);
-        
+        const { data: urlData } = supabase.storage.from('repair-images').getPublicUrl(`requests/${fileName}`);
         publicImageUrl = urlData.publicUrl;
       }
 
-      // 2. ส่งข้อมูลเข้า Database
-      // **จุดสำคัญ:** เราส่ง formData.device_type เข้าไปที่ device_name ด้วยเพื่อแก้ Error
       const { error } = await supabase
         .from('repair_tasks')
         .insert([{
           customer_name: formData.customer_name,
           contact_number: formData.contact_number,
-          device_name: formData.device_type, // <--- แก้ปัญหา Not Null ตรงนี้
           device_type: formData.device_type,
           brand: formData.brand,
           model: formData.model,
           color: formData.color,
-          plate_number: formData.plate_number,
+          plate_number: isVehicle ? formData.plate_number : null,
           description: formData.description,
           image_url: publicImageUrl,
           status: 'รอดำเนินการ'
         }]);
 
       if (error) throw error;
-      alert('บันทึกข้อมูลและส่งแจ้งซ่อมสำเร็จ!');
+      alert('ส่งข้อมูลแจ้งซ่อมเรียบร้อย!');
       navigate('/track-status');
-    } catch (error) {
-      alert('ไม่สามารถส่งข้อมูลได้: ' + error.message);
+    } catch (err) {
+      alert('เกิดข้อผิดพลาด: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-4">
-      <div className="max-w-lg mx-auto glass-card p-6 md:p-8 rounded-2xl mt-5" style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-        <h2 className="text-2xl font-bold mb-6 text-red-600 text-center uppercase tracking-widest">Request Service</h2>
+    <div className="min-h-screen bg-black text-white p-4 font-sans">
+      <div className="max-w-xl mx-auto glass-card p-8 rounded-3xl mt-6 border border-white/10 shadow-2xl">
+        <h2 className="text-3xl font-extrabold mb-8 text-red-600 text-center tracking-tighter uppercase">
+          Repair Request
+        </h2>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="text" placeholder="ชื่อผู้แจ้ง" className="glass-input w-full p-3 rounded-xl bg-white/10 border border-white/20" required
-            onChange={(e) => setFormData({...formData, customer_name: e.target.value})} />
-          
-          <input type="text" placeholder="เบอร์โทรติดต่อ" className="glass-input w-full p-3 rounded-xl bg-white/10 border border-white/20" required
-            onChange={(e) => setFormData({...formData, contact_number: e.target.value})} />
-
-          <select className="glass-input w-full p-3 rounded-xl bg-white/10 border border-white/20" required onChange={(e) => setFormData({...formData, device_type: e.target.value})}>
-            <option value="">-- เลือกประเภทอุปกรณ์ --</option>
-            {deviceCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
-
-          <div className="grid grid-cols-2 gap-4">
-            <input type="text" placeholder="ยี่ห้อ" className="glass-input p-3 rounded-xl bg-white/10 border border-white/20" onChange={(e) => setFormData({...formData, brand: e.target.value})} />
-            <input type="text" placeholder="สี" className="glass-input p-3 rounded-xl bg-white/10 border border-white/20" onChange={(e) => setFormData({...formData, color: e.target.value})} />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* ข้อมูลลูกค้า */}
+          <div className="space-y-4">
+            <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">ข้อมูลติดต่อ</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input type="text" placeholder="ชื่อผู้แจ้ง" className="glass-input p-4 rounded-2xl bg-white/5 border border-white/10" required
+                onChange={(e) => setFormData({...formData, customer_name: e.target.value})} />
+              <input type="text" placeholder="เบอร์โทรศัพท์" className="glass-input p-4 rounded-2xl bg-white/5 border border-white/10" required
+                onChange={(e) => setFormData({...formData, contact_number: e.target.value})} />
+            </div>
           </div>
 
-          <input type="text" placeholder="รุ่น / รายละเอียดเพิ่มเติม" className="glass-input w-full p-3 rounded-xl bg-white/10 border border-white/20" onChange={(e) => setFormData({...formData, model: e.target.value})} />
+          {/* รายละเอียดอุปกรณ์ */}
+          <div className="space-y-4 pt-4 border-t border-white/5">
+            <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">รายละเอียดอุปกรณ์</p>
+            <select className="glass-input w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-500 transition-all" required 
+              onChange={(e) => setFormData({...formData, device_type: e.target.value})}>
+              <option value="" className="bg-black text-white">-- เลือกประเภทอุปกรณ์ --</option>
+              {deviceCategories.map(cat => <option key={cat} value={cat} className="bg-black text-white">{cat}</option>)}
+            </select>
 
-          {["รถยนต์", "รถจักรยานยนต์", "เครื่องยนต์การเกษตร"].includes(formData.device_type) && (
-            <input type="text" placeholder="เลขทะเบียน" className="glass-input w-full p-3 rounded-xl bg-white/10 border border-red-500/50" onChange={(e) => setFormData({...formData, plate_number: e.target.value})} />
-          )}
+            <div className="grid grid-cols-2 gap-4">
+              <input type="text" placeholder="ยี่ห้อ (Brand)" className="glass-input p-4 rounded-2xl bg-white/5 border border-white/10"
+                onChange={(e) => setFormData({...formData, brand: e.target.value})} />
+              <input type="text" placeholder="สี (Color)" className="glass-input p-4 rounded-2xl bg-white/5 border border-white/10"
+                onChange={(e) => setFormData({...formData, color: e.target.value})} />
+            </div>
 
-          <textarea placeholder="ระบุอาการเสีย..." className="glass-input w-full h-24 p-3 rounded-xl bg-white/10 border border-white/20" required
-            onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
+            <input type="text" placeholder={isVehicle ? "รุ่น / ซีรี่ส์" : "รุ่น / รหัสสินค้า"} className="glass-input w-full p-4 rounded-2xl bg-white/5 border border-white/10"
+              onChange={(e) => setFormData({...formData, model: e.target.value})} />
 
-          <div className="p-4 rounded-xl border border-dashed border-red-500/30 bg-white/5">
-            <label className="block text-sm mb-2 text-gray-400 text-center">แนบรูปภาพอุปกรณ์ (ถ้ามี)</label>
-            <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-red-600 file:text-white hover:file:bg-red-700 cursor-pointer" />
+            {/* ช่องทะเบียนจะโผล่มาเฉพาะเมื่อเลือกยานพาหนะ */}
+            {isVehicle && (
+              <input type="text" placeholder="เลขทะเบียนรถ" className="glass-input w-full p-4 rounded-2xl bg-red-600/10 border border-red-500/50 placeholder:text-red-300/50 animate-pulse"
+                onChange={(e) => setFormData({...formData, plate_number: e.target.value})} />
+            )}
           </div>
 
-          <button type="submit" disabled={loading} className="w-full py-4 rounded-xl bg-red-600 hover:bg-red-700 font-bold transition-all active:scale-95 shadow-lg shadow-red-600/20">
+          {/* อาการเสียและการแนบรูป */}
+          <div className="space-y-4 pt-4 border-t border-white/5">
+            <textarea placeholder="ระบุอาการเสีย หรือข้อมูลเพิ่มเติมที่ต้องการให้ช่างทราบ..." className="glass-input w-full h-32 p-4 rounded-2xl bg-white/5 border border-white/10" required
+              onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
+
+            <div className="relative group p-4 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 hover:border-red-500/50 transition-all cursor-pointer">
+              <label className="block text-center text-sm text-gray-400 group-hover:text-red-400">
+                {imageFile ? `เลือกรูปภาพแล้ว: ${imageFile.name}` : "📸 แนบรูปภาพประกอบ (ถ้ามี)"}
+              </label>
+              <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} 
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full py-5 rounded-2xl bg-red-600 hover:bg-red-700 font-black text-xl transition-all active:scale-95 shadow-[0_0_20px_rgba(220,38,38,0.3)]">
             {loading ? 'กำลังบันทึกข้อมูล...' : 'ยืนยันการแจ้งซ่อม'}
           </button>
         </form>
