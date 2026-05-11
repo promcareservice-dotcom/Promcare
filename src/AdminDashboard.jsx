@@ -8,31 +8,36 @@ function AdminDashboard() {
   const [repairs, setRepairs] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // State สำหรับฟอร์ม (ใช้ชื่อคอลัมน์ที่สร้างใหม่ใน Supabase)
+  // State สำหรับฟอร์ม (ใช้ชื่อคอลัมน์ที่ตรงกับ Database)
   const [memberForm, setMemberForm] = useState({ 
     id: null, full_name: '', username: '', tel: '', line_id: '', address: '', role: 'customer' 
   });
 
   const fetchData = async () => {
     setLoading(true);
-    // ดึงข้อมูลจากตาราง profiles และ repair_tasks
-    const { data: mData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    const { data: rData } = await supabase.from('repair_tasks').select('*').order('created_at', { ascending: false });
-    
-    if (mData) setMembers(mData);
-    if (rData) setRepairs(rData);
-    setLoading(false);
+    try {
+      const { data: mData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      const { data: rData } = await supabase.from('repair_tasks').select('*').order('created_at', { ascending: false });
+      
+      if (mData) setMembers(mData);
+      if (rData) setRepairs(rData);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // --- ฟังก์ชันบันทึกข้อมูล (แก้ไขตามที่คุณต้องการ) ---
   const handleSaveMember = async () => {
-    if (!memberForm.full_name || !memberForm.username) return alert("⚠️ กรุณากรอกข้อมูลที่จำเป็นให้ครบ");
+    if (!memberForm.full_name) return alert("⚠️ กรุณากรอกชื่อ-นามสกุล");
 
     const payload = {
-      full_name: memberForm.full_name, // อิงตามคอลัมน์ใหม่ที่เพิ่ม
+      full_name: memberForm.full_name,
       username: memberForm.username,
       tel: memberForm.tel,
       line_id: memberForm.line_id,
@@ -42,90 +47,125 @@ function AdminDashboard() {
 
     let error;
     if (memberForm.id) {
-      const { error: err } = await supabase.from('profiles').update(payload).eq('id', memberForm.id);
+      // กรณีมี ID = อัปเดตข้อมูลเดิม
+      const { error: err } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', memberForm.id);
       error = err;
     } else {
-      const { error: err } = await supabase.from('profiles').insert([payload]);
+      // กรณีไม่มี ID = เพิ่มสมาชิกใหม่ (Database จะสร้าง UUID ให้เอง)
+      const { error: err } = await supabase
+        .from('profiles')
+        .insert([payload]);
       error = err;
     }
 
     if (error) {
       alert("❌ ผิดพลาด: " + error.message);
     } else {
-      alert("✅ บันทึกข้อมูลเรียบร้อย");
+      alert("✅ บันทึกสำเร็จ");
       setMemberForm({ id: null, full_name: '', username: '', tel: '', line_id: '', address: '', role: 'customer' });
       fetchData();
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("🗑️ คุณแน่ใจใช่ไหมที่จะลบสมาชิกคนนี้?")) {
+    if (window.confirm("🗑️ ยืนยันการลบสมาชิกรายนี้?")) {
       const { error } = await supabase.from('profiles').delete().eq('id', id);
-      if (!error) fetchData();
+      if (error) alert(error.message);
+      else fetchData();
     }
   };
 
-  if (loading) return <div style={loaderStyle}>🚀 กำลังดึงข้อมูลจากฐานข้อมูล...</div>;
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
+
+  if (loading) return <div style={loaderStyle}>🚀 กำลังโหลดข้อมูล...</div>;
 
   return (
     <div style={containerStyle}>
-      {/* Header Section */}
+      {/* Header */}
       <header style={headerStyle}>
         <div>
-          <h1 style={{ color: '#ff4d4d', margin: 0 }}>Promcare Service</h1>
-          <p style={{ color: '#888', fontSize: '14px' }}>Admin Management System</p>
+          <h1 style={{ color: '#ff4d4d', margin: 0 }}>🚩 Promcare Admin</h1>
+          <p style={{ color: '#888', fontSize: '14px' }}>ระบบจัดการหลังบ้านแบบสมบูรณ์</p>
         </div>
-        <button onClick={() => { supabase.auth.signOut(); navigate('/login'); }} style={btnLogout}>ออกจากระบบ</button>
+        <button onClick={handleLogout} style={btnLogout}>Logout</button>
       </header>
 
-      {/* Dashboard Stats */}
+      {/* Stats Summary */}
       <div style={statsGrid}>
-        <div style={statCard}><h5>รอซ่อม</h5><h3>{repairs.filter(r => r.status === 'pending').length}</h3></div>
-        <div style={statCard}><h5>กำลังดำเนินการ</h5><h3>{repairs.filter(r => r.status === 'fixing').length}</h3></div>
-        <div style={statCard}><h5>สมาชิกทั้งหมด</h5><h3>{members.length}</h3></div>
+        <div style={statCard}><h5>รอซ่อม</h5><h2 style={{color: '#fbbf24'}}>{repairs.filter(r => r.status === 'pending').length}</h2></div>
+        <div style={statCard}><h5>กำลังซ่อม</h5><h2 style={{color: '#60a5fa'}}>{repairs.filter(r => r.status === 'fixing').length}</h2></div>
+        <div style={statCard}><h5>สมาชิกทั้งหมด</h5><h2 style={{color: '#4ade80'}}>{members.length}</h2></div>
       </div>
 
-      <div style={mainContentGrid}>
-        {/* Form Section */}
+      <div style={mainLayout}>
+        {/* ส่วนที่ 1: ฟอร์มจัดการสมาชิก */}
         <section style={cardStyle}>
-          <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px' }}>จัดการสมาชิก</h3>
+          <h3 style={cardTitle}>{memberForm.id ? '📝 แก้ไขสมาชิก' : '➕ เพิ่มสมาชิกใหม่'}</h3>
           <div style={formGrid}>
-            <input placeholder="ชื่อ-นามสกุล" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} style={inputStyle} />
-            <input placeholder="ชื่อผู้ใช้งาน (Username)" value={memberForm.username} onChange={e => setMemberForm({...memberForm, username: e.target.value})} style={inputStyle} />
-            <input placeholder="เบอร์โทรศัพท์" value={memberForm.tel} onChange={e => setMemberForm({...memberForm, tel: e.target.value})} style={inputStyle} />
-            <input placeholder="Line ID" value={memberForm.line_id} onChange={e => setMemberForm({...memberForm, line_id: e.target.value})} style={inputStyle} />
-            <select value={memberForm.role} onChange={e => setMemberForm({...memberForm, role: e.target.value})} style={inputStyle}>
-              <option value="customer">ลูกค้า (Customer)</option>
-              <option value="technician">ช่าง (Technician)</option>
-              <option value="admin">ผู้ดูแล (Admin)</option>
-            </select>
-            <textarea placeholder="ที่อยู่ปัจจุบัน" value={memberForm.address} onChange={e => setMemberForm({...memberForm, address: e.target.value})} style={{...inputStyle, gridColumn: 'span 2', height: '60px'}} />
+            <div style={inputGroup}>
+              <label>ชื่อ-นามสกุล</label>
+              <input value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} style={inputStyle} />
+            </div>
+            <div style={inputGroup}>
+              <label>Username</label>
+              <input value={memberForm.username} onChange={e => setMemberForm({...memberForm, username: e.target.value})} style={inputStyle} />
+            </div>
+            <div style={inputGroup}>
+              <label>เบอร์โทรศัพท์</label>
+              <input value={memberForm.tel} onChange={e => setMemberForm({...memberForm, tel: e.target.value})} style={inputStyle} />
+            </div>
+            <div style={inputGroup}>
+              <label>Line ID</label>
+              <input value={memberForm.line_id} onChange={e => setMemberForm({...memberForm, line_id: e.target.value})} style={inputStyle} />
+            </div>
+            <div style={{...inputGroup, gridColumn: 'span 2'}}>
+              <label>ตำแหน่ง/บทบาท</label>
+              <select value={memberForm.role} onChange={e => setMemberForm({...memberForm, role: e.target.value})} style={inputStyle}>
+                <option value="customer">ลูกค้า (Customer)</option>
+                <option value="technician">ช่าง (Technician)</option>
+                <option value="admin">ผู้ดูแล (Admin)</option>
+              </select>
+            </div>
+            <div style={{...inputGroup, gridColumn: 'span 2'}}>
+              <label>ที่อยู่</label>
+              <textarea value={memberForm.address} onChange={e => setMemberForm({...memberForm, address: e.target.value})} style={{...inputStyle, height: '60px'}} />
+            </div>
           </div>
-          <button onClick={handleSaveMember} style={btnSave}>💾 บันทึกการเปลี่ยนแปลง</button>
+          <button onClick={handleSaveMember} style={btnPrimary}>💾 บันทึกข้อมูลสมาชิก</button>
+          {memberForm.id && (
+            <button onClick={() => setMemberForm({ id: null, full_name: '', username: '', tel: '', line_id: '', address: '', role: 'customer' })} style={btnCancel}>ยกเลิกการแก้ไข</button>
+          )}
         </section>
 
-        {/* Member Table Section */}
+        {/* ส่วนที่ 2: ตารางรายชื่อ */}
         <section style={cardStyle}>
-          <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px' }}>รายชื่อสมาชิก</h3>
+          <h3 style={cardTitle}>👥 รายชื่อสมาชิกในระบบ</h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={tableStyle}>
               <thead>
-                <tr>
-                  <th>ระดับ</th>
+                <tr style={thStyle}>
+                  <th>บทบาท</th>
                   <th>ชื่อ-นามสกุล</th>
-                  <th>ติดต่อ</th>
-                  <th>จัดการ</th>
+                  <th>การจัดการ</th>
                 </tr>
               </thead>
               <tbody>
                 {members.map(m => (
-                  <tr key={m.id}>
+                  <tr key={m.id} style={trStyle}>
                     <td><span style={roleBadge(m.role)}>{m.role}</span></td>
-                    <td>{m.full_name}</td>
-                    <td><a href={`tel:${m.tel}`} style={{color: '#4ade80', textDecoration: 'none'}}>📞 {m.tel}</a></td>
                     <td>
-                      <button onClick={() => setMemberForm(m)} style={btnIconEdit}>แก้ไข</button>
-                      <button onClick={() => handleDelete(m.id)} style={btnIconDelete}>ลบ</button>
+                      <div><strong>{m.full_name}</strong></div>
+                      <div style={{fontSize:'12px', color:'#666'}}>{m.tel}</div>
+                    </td>
+                    <td>
+                      <button onClick={() => setMemberForm(m)} style={btnEdit}>แก้ไข</button>
+                      <button onClick={() => handleDelete(m.id)} style={btnDelete}>ลบ</button>
                     </td>
                   </tr>
                 ))}
@@ -134,45 +174,30 @@ function AdminDashboard() {
           </div>
         </section>
       </div>
-
-      {/* Recent Repairs Section */}
-      <section style={{...cardStyle, marginTop: '20px'}}>
-        <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px' }}>🔧 รายการแจ้งซ่อมล่าสุด</h3>
-        <div style={repairGrid}>
-          {repairs.length > 0 ? repairs.map(task => (
-            <div key={task.id} style={repairCard}>
-              <strong>{task.brand} {task.device_name}</strong>
-              <p style={{ fontSize: '13px', color: '#aaa', margin: '5px 0' }}>อาการ: {task.issue}</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={statusStyle(task.status)}>{task.status}</span>
-                <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>฿{task.price || 0}</span>
-              </div>
-            </div>
-          )) : <p style={{color: '#555', textAlign: 'center'}}>ยังไม่มีข้อมูลการแจ้งซ่อม</p>}
-        </div>
-      </section>
     </div>
   );
 }
 
-// --- Styles ---
+// --- Styles (มืออาชีพ & Clean) ---
 const containerStyle = { padding: '20px', maxWidth: '1200px', margin: '0 auto', color: '#eee', backgroundColor: '#000', minHeight: '100vh', fontFamily: "'Kanit', sans-serif" };
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #1a1a1a', paddingBottom: '15px' };
-const statsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' };
-const statCard = { background: '#111', padding: '20px', borderRadius: '15px', textAlign: 'center', border: '1px solid #222' };
-const mainContentGrid = { display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '20px' };
-const cardStyle = { background: '#0a0a0a', padding: '20px', borderRadius: '15px', border: '1px solid #222', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' };
+const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '1px solid #222', paddingBottom: '15px' };
+const statsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '30px' };
+const statCard = { background: '#111', padding: '20px', borderRadius: '15px', border: '1px solid #222', textAlign: 'center' };
+const mainLayout = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '25px' };
+const cardStyle = { background: '#0a0a0a', padding: '25px', borderRadius: '20px', border: '1px solid #222' };
+const cardTitle = { color: '#ff4d4d', marginTop: 0, marginBottom: '20px', fontSize: '18px', borderBottom: '1px solid #222', paddingBottom: '10px' };
+const formGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' };
+const inputGroup = { display: 'flex', flexDirection: 'column', gap: '5px' };
 const inputStyle = { padding: '12px', background: '#1a1a1a', border: '1px solid #333', color: 'white', borderRadius: '8px', fontSize: '14px' };
-const formGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' };
-const btnSave = { width: '100%', marginTop: '20px', padding: '15px', background: '#ff4d4d', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' };
-const btnLogout = { background: '#333', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse', marginTop: '10px' };
-const roleBadge = (role) => ({ padding: '3px 8px', borderRadius: '5px', fontSize: '11px', background: role === 'admin' ? '#ef4444' : '#3b82f6', color: 'white' });
-const btnIconEdit = { color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' };
-const btnIconDelete = { color: '#f87171', background: 'none', border: 'none', cursor: 'pointer' };
-const repairGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px', marginTop: '15px' };
-const repairCard = { background: '#161616', padding: '15px', borderRadius: '12px', border: '1px solid #333' };
-const statusStyle = (s) => ({ color: s === 'success' ? '#4ade80' : '#fbbf24', fontSize: '12px' });
-const loaderStyle = { color: 'white', textAlign: 'center', marginTop: '100px', fontSize: '18px' };
+const btnPrimary = { width: '100%', marginTop: '20px', padding: '15px', background: '#ff4d4d', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' };
+const btnCancel = { width: '100%', marginTop: '10px', padding: '10px', background: '#333', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer' };
+const btnLogout = { background: '#222', color: 'white', border: '1px solid #444', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' };
+const tableStyle = { width: '100%', borderCollapse: 'collapse' };
+const thStyle = { textAlign: 'left', color: '#555', fontSize: '13px' };
+const trStyle = { borderBottom: '1px solid #111' };
+const roleBadge = (role) => ({ padding: '3px 8px', borderRadius: '5px', fontSize: '10px', background: role === 'admin' ? '#ef4444' : '#444', color: 'white' });
+const btnEdit = { color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' };
+const btnDelete = { color: '#f87171', background: 'none', border: 'none', cursor: 'pointer' };
+const loaderStyle = { color: 'white', textAlign: 'center', marginTop: '100px' };
 
 export default AdminDashboard;
