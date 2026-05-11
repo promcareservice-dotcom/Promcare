@@ -1,5 +1,5 @@
 // ส่วนบนของไฟล์ RequestRepair.jsx ต้อง import แบบนี้
-import { supabase } from '../supabaseClient.js';
+import { supabase } from './supabaseClient.js';
 
 // ภายในฟังก์ชัน handleSubmit
 const handleSubmit = async (e) => {
