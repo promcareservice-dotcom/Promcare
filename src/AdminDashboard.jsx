@@ -8,16 +8,15 @@ function AdminDashboard() {
   const [repairs, setRepairs] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // State สำหรับฟอร์ม (ปรับชื่อให้ตรงกับ Database ของคุณ: tel, line_id)
+  // State สำหรับฟอร์ม (ใช้ชื่อคอลัมน์ที่สร้างใหม่ใน Supabase)
   const [memberForm, setMemberForm] = useState({ 
     id: null, full_name: '', username: '', tel: '', line_id: '', address: '', role: 'customer' 
   });
 
   const fetchData = async () => {
     setLoading(true);
-    // ดึงข้อมูลสมาชิกจากตาราง profiles
+    // ดึงข้อมูลจากตาราง profiles และ repair_tasks
     const { data: mData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    // ดึงข้อมูลงานซ่อมจากตาราง repair_tasks
     const { data: rData } = await supabase.from('repair_tasks').select('*').order('created_at', { ascending: false });
     
     if (mData) setMembers(mData);
@@ -29,131 +28,151 @@ function AdminDashboard() {
     fetchData();
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
-  };
-
   const handleSaveMember = async () => {
-    if (!memberForm.full_name) return alert("⚠️ กรุณากรอกชื่อ-นามสกุล");
+    if (!memberForm.full_name || !memberForm.username) return alert("⚠️ กรุณากรอกข้อมูลที่จำเป็นให้ครบ");
 
     const payload = {
-      full_name: memberForm.full_name,
+      full_name: memberForm.full_name, // อิงตามคอลัมน์ใหม่ที่เพิ่ม
       username: memberForm.username,
-      tel: memberForm.tel, // ใช้ tel ตาม Database
+      tel: memberForm.tel,
       line_id: memberForm.line_id,
       address: memberForm.address,
       role: memberForm.role
     };
 
-    let result;
+    let error;
     if (memberForm.id) {
-      result = await supabase.from('profiles').update(payload).eq('id', memberForm.id);
+      const { error: err } = await supabase.from('profiles').update(payload).eq('id', memberForm.id);
+      error = err;
     } else {
-      result = await supabase.from('profiles').insert([payload]);
+      const { error: err } = await supabase.from('profiles').insert([payload]);
+      error = err;
     }
 
-    if (result.error) {
-      alert("❌ ผิดพลาด: " + result.error.message);
+    if (error) {
+      alert("❌ ผิดพลาด: " + error.message);
     } else {
-      alert("✅ บันทึกข้อมูลสำเร็จ");
+      alert("✅ บันทึกข้อมูลเรียบร้อย");
       setMemberForm({ id: null, full_name: '', username: '', tel: '', line_id: '', address: '', role: 'customer' });
       fetchData();
     }
   };
 
-  const stats = {
-    pending: repairs.filter(r => r.status === 'pending').length,
-    fixing: repairs.filter(r => r.status === 'fixing').length,
-    success: repairs.filter(r => r.status === 'success').length
+  const handleDelete = async (id) => {
+    if (window.confirm("🗑️ คุณแน่ใจใช่ไหมที่จะลบสมาชิกคนนี้?")) {
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      if (!error) fetchData();
+    }
   };
 
-  if (loading) return <div style={{ color: 'white', textAlign: 'center', padding: '50px' }}>🚀 กำลังโหลดข้อมูล...</div>;
+  if (loading) return <div style={loaderStyle}>🚀 กำลังดึงข้อมูลจากฐานข้อมูล...</div>;
 
   return (
-    <div style={{ padding: '20px', color: 'white', backgroundColor: '#0a0a0a', minHeight: '100vh', fontFamily: 'Kanit, sans-serif' }}>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-        <h1 style={{ color: '#ff4d4d', margin: 0 }}>🚩 Promcare Admin Dashboard</h1>
-        <button onClick={handleLogout} style={btnLogout}>Logout</button>
-      </div>
-
-      {/* 📊 ส่วนแสดงสถานะการส่งซ่อม (Dashboard) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px', marginBottom: '30px' }}>
-        <div style={statCard}><h4 style={{color:'#888'}}>⏳ รอซ่อม</h4><h2 style={{color:'#fbbf24'}}>{stats.pending}</h2></div>
-        <div style={statCard}><h4 style={{color:'#888'}}>🔧 กำลังซ่อม</h4><h2 style={{color:'#60a5fa'}}>{stats.fixing}</h2></div>
-        <div style={statCard}><h4 style={{color:'#888'}}>✅ เสร็จสิ้น</h4><h2 style={{color:'#4ade80'}}>{stats.success}</h2></div>
-      </div>
-
-      {/* 👥 ส่วนจัดการสมาชิก (ช่องกรอกครบถ้วน) */}
-      <section style={sectionBox}>
-        <h3 style={{ color: '#ff4d4d', marginBottom: '20px' }}>จัดการข้อมูลสมาชิก</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-          <input placeholder="ชื่อ-นามสกุล" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} style={inputStyle} />
-          <input placeholder="Username" value={memberForm.username} onChange={e => setMemberForm({...memberForm, username: e.target.value})} style={inputStyle} />
-          <input placeholder="เบอร์โทรศัพท์" value={memberForm.tel} onChange={e => setMemberForm({...memberForm, tel: e.target.value})} style={inputStyle} />
-          <input placeholder="ไอดีไลน์" value={memberForm.line_id} onChange={e => setMemberForm({...memberForm, line_id: e.target.value})} style={inputStyle} />
-          <select value={memberForm.role} onChange={e => setMemberForm({...memberForm, role: e.target.value})} style={inputStyle}>
-            <option value="customer">ลูกค้า</option>
-            <option value="technician">ช่าง</option>
-            <option value="admin">แอดมิน</option>
-          </select>
-          <textarea placeholder="ที่อยู่" value={memberForm.address} onChange={e => setMemberForm({...memberForm, address: e.target.value})} style={{...inputStyle, gridColumn: 'span 2'}} />
+    <div style={containerStyle}>
+      {/* Header Section */}
+      <header style={headerStyle}>
+        <div>
+          <h1 style={{ color: '#ff4d4d', margin: 0 }}>Promcare Service</h1>
+          <p style={{ color: '#888', fontSize: '14px' }}>Admin Management System</p>
         </div>
-        <button onClick={handleSaveMember} style={btnPrimary}>💾 บันทึกข้อมูลสมาชิก</button>
-      </section>
+        <button onClick={() => { supabase.auth.signOut(); navigate('/login'); }} style={btnLogout}>ออกจากระบบ</button>
+      </header>
 
-      {/* 📋 ตารางสมาชิกและการโทรออก */}
-      <div style={{ marginTop: '30px', overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ color: '#888', borderBottom: '1px solid #333', textAlign: 'left' }}>
-              <th style={{ padding: '10px' }}>สิทธิ์</th>
-              <th>ชื่อสมาชิก</th>
-              <th>ติดต่อ</th>
-              <th>จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map(m => (
-              <tr key={m.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                <td style={{ padding: '12px' }}>{m.role}</td>
-                <td><strong>{m.full_name}</strong></td>
-                <td>
-                  <a href={`tel:${m.tel}`} style={{ color: '#4ade80', textDecoration: 'none' }}>📞 {m.tel || 'ไม่มีเบอร์'}</a>
-                </td>
-                <td>
-                  <button onClick={() => setMemberForm(m)} style={{ color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer' }}>แก้ไข</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Dashboard Stats */}
+      <div style={statsGrid}>
+        <div style={statCard}><h5>รอซ่อม</h5><h3>{repairs.filter(r => r.status === 'pending').length}</h3></div>
+        <div style={statCard}><h5>กำลังดำเนินการ</h5><h3>{repairs.filter(r => r.status === 'fixing').length}</h3></div>
+        <div style={statCard}><h5>สมาชิกทั้งหมด</h5><h3>{members.length}</h3></div>
       </div>
 
-      {/* 🔧 รายการแจ้งซ่อมที่สมาชิกส่งมา */}
-      <section style={{ marginTop: '40px' }}>
-        <h3 style={{ color: '#ff4d4d' }}>🔧 รายการแจ้งซ่อมล่าสุด</h3>
-        <div style={{ display: 'grid', gap: '15px', marginTop: '15px' }}>
-          {repairs.map(task => (
+      <div style={mainContentGrid}>
+        {/* Form Section */}
+        <section style={cardStyle}>
+          <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px' }}>จัดการสมาชิก</h3>
+          <div style={formGrid}>
+            <input placeholder="ชื่อ-นามสกุล" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} style={inputStyle} />
+            <input placeholder="ชื่อผู้ใช้งาน (Username)" value={memberForm.username} onChange={e => setMemberForm({...memberForm, username: e.target.value})} style={inputStyle} />
+            <input placeholder="เบอร์โทรศัพท์" value={memberForm.tel} onChange={e => setMemberForm({...memberForm, tel: e.target.value})} style={inputStyle} />
+            <input placeholder="Line ID" value={memberForm.line_id} onChange={e => setMemberForm({...memberForm, line_id: e.target.value})} style={inputStyle} />
+            <select value={memberForm.role} onChange={e => setMemberForm({...memberForm, role: e.target.value})} style={inputStyle}>
+              <option value="customer">ลูกค้า (Customer)</option>
+              <option value="technician">ช่าง (Technician)</option>
+              <option value="admin">ผู้ดูแล (Admin)</option>
+            </select>
+            <textarea placeholder="ที่อยู่ปัจจุบัน" value={memberForm.address} onChange={e => setMemberForm({...memberForm, address: e.target.value})} style={{...inputStyle, gridColumn: 'span 2', height: '60px'}} />
+          </div>
+          <button onClick={handleSaveMember} style={btnSave}>💾 บันทึกการเปลี่ยนแปลง</button>
+        </section>
+
+        {/* Member Table Section */}
+        <section style={cardStyle}>
+          <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px' }}>รายชื่อสมาชิก</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th>ระดับ</th>
+                  <th>ชื่อ-นามสกุล</th>
+                  <th>ติดต่อ</th>
+                  <th>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map(m => (
+                  <tr key={m.id}>
+                    <td><span style={roleBadge(m.role)}>{m.role}</span></td>
+                    <td>{m.full_name}</td>
+                    <td><a href={`tel:${m.tel}`} style={{color: '#4ade80', textDecoration: 'none'}}>📞 {m.tel}</a></td>
+                    <td>
+                      <button onClick={() => setMemberForm(m)} style={btnIconEdit}>แก้ไข</button>
+                      <button onClick={() => handleDelete(m.id)} style={btnIconDelete}>ลบ</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      {/* Recent Repairs Section */}
+      <section style={{...cardStyle, marginTop: '20px'}}>
+        <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px' }}>🔧 รายการแจ้งซ่อมล่าสุด</h3>
+        <div style={repairGrid}>
+          {repairs.length > 0 ? repairs.map(task => (
             <div key={task.id} style={repairCard}>
               <strong>{task.brand} {task.device_name}</strong>
-              <p style={{ fontSize: '13px', color: '#888' }}>อาการ: {task.issue}</p>
-              <span style={{ fontSize: '12px', color: '#fbbf24' }}>สถานะ: {task.status}</span>
+              <p style={{ fontSize: '13px', color: '#aaa', margin: '5px 0' }}>อาการ: {task.issue}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={statusStyle(task.status)}>{task.status}</span>
+                <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>฿{task.price || 0}</span>
+              </div>
             </div>
-          ))}
-          {repairs.length === 0 && <p style={{color:'#444'}}>ไม่มีรายการแจ้งซ่อม</p>}
+          )) : <p style={{color: '#555', textAlign: 'center'}}>ยังไม่มีข้อมูลการแจ้งซ่อม</p>}
         </div>
       </section>
     </div>
   );
 }
 
-const statCard = { background: '#161616', padding: '15px', borderRadius: '12px', textAlign: 'center', border: '1px solid #333' };
-const sectionBox = { background: '#111', padding: '20px', borderRadius: '15px', border: '1px solid #222' };
-const repairCard = { background: '#161616', padding: '15px', borderRadius: '10px', border: '1px solid #333' };
-const inputStyle = { width: '100%', padding: '12px', background: '#222', border: '1px solid #444', color: 'white', borderRadius: '8px' };
-const btnPrimary = { width: '100%', marginTop: '15px', padding: '15px', background: '#ff4d4d', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' };
-const btnLogout = { background: '#333', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' };
+// --- Styles ---
+const containerStyle = { padding: '20px', maxWidth: '1200px', margin: '0 auto', color: '#eee', backgroundColor: '#000', minHeight: '100vh', fontFamily: "'Kanit', sans-serif" };
+const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #1a1a1a', paddingBottom: '15px' };
+const statsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' };
+const statCard = { background: '#111', padding: '20px', borderRadius: '15px', textAlign: 'center', border: '1px solid #222' };
+const mainContentGrid = { display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '20px' };
+const cardStyle = { background: '#0a0a0a', padding: '20px', borderRadius: '15px', border: '1px solid #222', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' };
+const inputStyle = { padding: '12px', background: '#1a1a1a', border: '1px solid #333', color: 'white', borderRadius: '8px', fontSize: '14px' };
+const formGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' };
+const btnSave = { width: '100%', marginTop: '20px', padding: '15px', background: '#ff4d4d', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' };
+const btnLogout = { background: '#333', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' };
+const tableStyle = { width: '100%', borderCollapse: 'collapse', marginTop: '10px' };
+const roleBadge = (role) => ({ padding: '3px 8px', borderRadius: '5px', fontSize: '11px', background: role === 'admin' ? '#ef4444' : '#3b82f6', color: 'white' });
+const btnIconEdit = { color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' };
+const btnIconDelete = { color: '#f87171', background: 'none', border: 'none', cursor: 'pointer' };
+const repairGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px', marginTop: '15px' };
+const repairCard = { background: '#161616', padding: '15px', borderRadius: '12px', border: '1px solid #333' };
+const statusStyle = (s) => ({ color: s === 'success' ? '#4ade80' : '#fbbf24', fontSize: '12px' });
+const loaderStyle = { color: 'white', textAlign: 'center', marginTop: '100px', fontSize: '18px' };
 
 export default AdminDashboard;
