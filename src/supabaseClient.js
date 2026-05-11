@@ -1,9 +1,6 @@
-import { supabase } from '../supabaseClient.js';
+import { createClient } from '@supabase/supabase-js'; // ต้อง import ตัวนี้เท่านั้น
 
-// 1. ตรวจสอบว่า URL และ Key ถูกต้อง (ก๊อปปี้มาจากหน้า Settings > API ใน Supabase)
-const supabaseUrl = 'https://iuhywblfqodtrabeohln.supabase.co'
-const supabaseAnonKey = 'sb_publishable_KgT2KMpgBEc6qwEeOOh8Ig_L2-skiJR'
+const supabaseUrl = 'https://iuhywblfqodtrabeohln.supabase.co';
+const supabaseAnonKey = 'sb_publishable_Kgt2KMpgBEc6qwEeOOh8Ig_L2-skiJR'; // เช็ค Key นี้อีกรอบในหน้า Settings > API ของ Supabase
 
-// 2. สร้าง Client และ Export ออกไปใช้งาน
-// ตรวจสอบการสะกดชื่อตัวแปร supabase ให้เป็นตัวพิมพ์เล็กทั้งหมด
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
