@@ -1,57 +1,40 @@
 import React, { useState } from 'react';
-import { supabase } from './supabaseClient.js'; // ใช้ ./ เพราะอยู่ใน src เหมือนกัน
+import { supabase } from './supabaseClient.js'; // แก้เป็น ./ เพื่อให้ Vercel หาเจอ
 import { useNavigate } from 'react-router-dom';
 
 const RequestRepair = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    customer_name: '',
-    contact_number: '',
-    description: ''
-  });
+  const [formData, setFormData] = useState({ customer_name: '', contact_number: '', description: '' });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('repair_tasks')
-        .insert([{
-          ...formData,
-          status: 'รอดำเนินการ',
-          created_at: new Date().toISOString()
-        }]);
-
+      const { error } = await supabase.from('repair_tasks').insert([formData]);
       if (error) throw error;
-      alert('✅ บันทึกข้อมูลสำเร็จ! เจ้าหน้าที่จะติดต่อกลับโดยเร็ว');
+      alert('ส่งข้อมูลสำเร็จ!');
       navigate('/');
     } catch (err) {
-      alert('❌ เกิดข้อผิดพลาด: ' + err.message);
+      alert('เกิดข้อผิดพลาด: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ backgroundColor: '#000', minHeight: '100vh', padding: '40px 20px', color: '#fff', fontFamily: 'sans-serif' }}>
-      <div style={{ maxWidth: '450px', margin: '0 auto', backgroundColor: '#111', padding: '30px', borderRadius: '12px', border: '1px solid #333' }}>
-        <h2 style={{ color: '#ff4d4d', textAlign: 'center', marginBottom: '25px' }}>ฟอร์มแจ้งซ่อมอุปกรณ์</h2>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <label>ชื่อผู้แจ้ง:</label>
-          <input type="text" required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+    <div style={{ backgroundColor: '#000', minHeight: '100vh', color: '#fff', padding: '20px' }}>
+      <div style={{ maxWidth: '400px', margin: '0 auto', background: '#111', padding: '30px', borderRadius: '15px', border: '1px solid #333' }}>
+        <h2 style={{ color: '#ff4d4d', textAlign: 'center' }}>แจ้งซ่อมอุปกรณ์</h2>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+          <input placeholder="ชื่อผู้แจ้ง" required style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px' }}
             onChange={(e) => setFormData({...formData, customer_name: e.target.value})} />
-          
-          <label>เบอร์โทรศัพท์:</label>
-          <input type="text" required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+          <input placeholder="เบอร์โทรศัพท์" required style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px' }}
             onChange={(e) => setFormData({...formData, contact_number: e.target.value})} />
-          
-          <label>รายละเอียดอาการเสีย:</label>
-          <textarea required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #444', backgroundColor: '#222', color: '#fff', minHeight: '100px' }}
+          <textarea placeholder="อาการเสีย" required style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px', minHeight: '100px' }}
             onChange={(e) => setFormData({...formData, description: e.target.value})} />
-          
-          <button type="submit" disabled={loading} style={{ marginTop: '10px', padding: '12px', backgroundColor: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>
-            {loading ? 'กำลังส่งข้อมูล...' : 'ส่งข้อมูลแจ้งซ่อม'}
+          <button type="submit" disabled={loading} style={{ padding: '15px', background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+            {loading ? 'กำลังบันทึก...' : 'ยืนยันการแจ้งซ่อม'}
           </button>
         </form>
       </div>
