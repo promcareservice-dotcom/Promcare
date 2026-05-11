@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient.js';
 
 // 1. ตรวจสอบว่า URL และ Key ถูกต้อง (ก๊อปปี้มาจากหน้า Settings > API ใน Supabase)
 const supabaseUrl = 'https://iuhywblfqodtrabeohln.supabase.co'
