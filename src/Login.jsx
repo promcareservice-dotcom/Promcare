@@ -31,7 +31,7 @@ const Login = () => {
       if (profileError) throw profileError;
 
       // 3. ตรวจสอบว่าเป็นแอดมินหรือไม่
-      if (profile?.role === 'แอดมิน') {
+      if (profile?.role === 'admin') {
         alert('ยินดีต้อนรับแอดมิน!');
         navigate('/admin'); // ไปยังหน้า AdminDashboard
       } else {
