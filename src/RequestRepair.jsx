@@ -1,105 +1,149 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
+import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
-function RequestRepair() {
+const RequestRepair = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(null);
-
-  const [form, setForm] = useState({
-    device_name: '',
-    brand: '',
-    issue: '',
-    guest_name: '',
-    guest_tel: ''
+  
+  // State สำหรับเก็บข้อมูลฟอร์ม
+  const [formData, setFormData] = useState({
+    customer_name: '',
+    contact_number: '',
+    device_type: '', // ประเภทอุปกรณ์ (ตัวเลือก)
+    brand: '',       // ยี่ห้อ
+    model: '',       // รุ่น
+    color: '',       // สี
+    plate_number: '', // ทะเบียน
+    description: ''  // อาการเสีย
   });
 
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUser(user);
-    };
-    checkUser();
-  }, []);
+  const deviceCategories = [
+    "รถยนต์", "รถจักรยานยนต์", "เครื่องยนต์การเกษตร", "เครื่องตัดหญ้า", 
+    "แอร์", "ทีวี", "ตู้เย็น", "พัดลม"
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.device_name || !form.issue) return alert("⚠️ กรุณากรอกข้อมูลให้ครบถ้วน");
-    if (!user && (!form.guest_name || !form.guest_tel)) return alert("⚠️ กรุณากรอกชื่อและเบอร์โทรติดต่อ");
-
     setLoading(true);
-    const payload = {
-      device_name: form.device_name,
-      brand: form.brand,
-      issue: form.issue,
-      status: 'pending',
-      member_id: user ? user.id : null, // ใช้ชื่อคอลัมน์ตามตารางของคุณ
-      guest_name: user ? null : form.guest_name,
-      guest_tel: user ? null : form.guest_tel
-    };
 
-    const { error } = await supabase.from('repair_tasks').insert([payload]);
+    try {
+      const { error } = await supabase
+        .from('repair_tasks')
+        .insert([
+          { 
+            customer_name: formData.customer_name,
+            contact_number: formData.contact_number,
+            device_type: formData.device_type,
+            brand: formData.brand,
+            model: formData.model,
+            color: formData.color,
+            plate_number: formData.plate_number,
+            description: formData.description,
+            status: 'รอดำเนินการ'
+          }
+        ]);
 
-    if (error) {
-      alert("❌ เกิดข้อผิดพลาด: " + error.message);
-    } else {
-      alert("✅ ส่งข้อมูลแจ้งซ่อมเรียบร้อย! เจ้าหน้าที่จะติดต่อกลับครับ");
-      navigate('/'); // กลับหน้าแรก
+      if (error) throw error;
+      alert('ส่งข้อมูลแจ้งซ่อมเรียบร้อยแล้ว!');
+      navigate('/track-status');
+    } catch (error) {
+      alert('เกิดข้อผิดพลาด: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={cardStyle}>
-        <h2 style={{ color: '#ff4d4d', textAlign: 'center' }}>🔧 แจ้งซ่อมด่วน</h2>
-        <form onSubmit={handleSubmit} style={formStyle}>
-          {!user && (
-            <div style={guestBox}>
-              <p style={{ fontSize: '14px', color: '#888' }}>ข้อมูลติดต่อลูกค้าทั่วไป</p>
-              <input 
-                placeholder="ชื่อ-นามสกุล" 
-                style={inputStyle} 
-                onChange={e => setForm({...form, guest_name: e.target.value})} 
-              />
-              <input 
-                placeholder="เบอร์โทรศัพท์" 
-                style={inputStyle} 
-                onChange={e => setForm({...form, guest_tel: e.target.value})} 
-              />
-            </div>
+    <div className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-md mx-auto glass-card p-8 rounded-2xl">
+        <h2 className="text-3xl font-bold mb-6 text-red-600 text-center">แจ้งซ่อมอุปกรณ์</h2>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            placeholder="ชื่อผู้แจ้ง"
+            className="glass-input w-full"
+            value={formData.customer_name}
+            onChange={(e) => setFormData({...formData, customer_name: e.target.value})}
+            required
+          />
+          <input
+            type="text"
+            placeholder="เบอร์โทรศัพท์"
+            className="glass-input w-full"
+            value={formData.contact_number}
+            onChange={(e) => setFormData({...formData, contact_number: e.target.value})}
+            required
+          />
+
+          {/* เลือกประเภทอุปกรณ์ */}
+          <select 
+            className="glass-input w-full"
+            value={formData.device_type}
+            onChange={(e) => setFormData({...formData, device_type: e.target.value})}
+            required
+          >
+            <option value="">-- เลือกประเภทอุปกรณ์ --</option>
+            {deviceCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
+
+          {/* ช่องกรอกตามเงื่อนไข */}
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="ยี่ห้อ"
+              className="glass-input"
+              value={formData.brand}
+              onChange={(e) => setFormData({...formData, brand: e.target.value})}
+            />
+            <input
+              type="text"
+              placeholder="สี"
+              className="glass-input"
+              value={formData.color}
+              onChange={(e) => setFormData({...formData, color: e.target.value})}
+            />
+          </div>
+
+          <input
+            type="text"
+            placeholder="รุ่น / รายละเอียดเพิ่มเติม"
+            className="glass-input w-full"
+            value={formData.model}
+            onChange={(e) => setFormData({...formData, model: e.target.value})}
+          />
+
+          {/* โชว์ช่องทะเบียนเฉพาะกลุ่มยานพาหนะ */}
+          {["รถยนต์", "รถจักรยานยนต์", "เครื่องยนต์การเกษตร"].includes(formData.device_type) && (
+            <input
+              type="text"
+              placeholder="เลขทะเบียน"
+              className="glass-input w-full"
+              value={formData.plate_number}
+              onChange={(e) => setFormData({...formData, plate_number: e.target.value})}
+            />
           )}
-          <input 
-            placeholder="ชื่ออุปกรณ์ / รุ่น" 
-            style={inputStyle} 
-            onChange={e => setForm({...form, device_name: e.target.value})} 
-          />
-          <input 
-            placeholder="ยี่ห้อ" 
-            style={inputStyle} 
-            onChange={e => setForm({...form, brand: e.target.value})} 
-          />
-          <textarea 
-            placeholder="อาการเสียที่พบ" 
-            style={{...inputStyle, height: '100px'}} 
-            onChange={e => setForm({...form, issue: e.target.value})} 
-          />
-          <button type="submit" disabled={loading} style={btnSubmit}>
-            {loading ? 'กำลังส่งข้อมูล...' : '🚀 ส่งข้อมูลแจ้งซ่อม'}
+
+          <textarea
+            placeholder="อาการเสีย / งานที่ต้องการให้ทำ"
+            className="glass-input w-full h-32"
+            value={formData.description}
+            onChange={(e) => setFormData({...formData, description: e.target.value})}
+            required
+          ></textarea>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 rounded-xl bg-red-600 hover:bg-red-700 font-bold transition-all transform hover:scale-105"
+          >
+            {loading ? 'กำลังส่งข้อมูล...' : 'ยืนยันการแจ้งซ่อม'}
           </button>
         </form>
       </div>
     </div>
   );
-}
-
-// Styles
-const containerStyle = { display: 'flex', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#000', padding: '20px', color: '#fff', fontFamily: 'Kanit' };
-const cardStyle = { maxWidth: '500px', width: '100%', background: '#0a0a0a', padding: '30px', borderRadius: '20px', border: '1px solid #222' };
-const formStyle = { display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' };
-const inputStyle = { padding: '12px', background: '#161616', border: '1px solid #333', color: 'white', borderRadius: '10px' };
-const guestBox = { display: 'flex', flexDirection: 'column', gap: '10px', padding: '15px', background: '#111', borderRadius: '10px', border: '1px dotted #444' };
-const btnSubmit = { padding: '15px', background: 'linear-gradient(45deg, #ff4d4d, #b30000)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' };
+};
 
 export default RequestRepair;
