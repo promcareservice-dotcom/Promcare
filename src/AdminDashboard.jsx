@@ -3,165 +3,227 @@ import { supabase } from './supabaseClient';
 
 const AdminDashboard = () => {
   const [tasks, setTasks] = useState([]);
-  const [members, setMembers] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
+  const [filterStatus, setFilterStatus] = useState('all');
   const [stats, setStats] = useState({ pending: 0, doing: 0, done: 0, allMembers: 0 });
   const [loading, setLoading] = useState(true);
-
-  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-
-  const [newMember, setNewMember] = useState({
-    full_name: '', username: '', password: '', phone: '', line_id: '', address: '', role: 'customer'
-  });
-  const [editTasks, setEditTasks] = useState({});
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [editData, setEditData] = useState({});
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    applyFilter();
+  }, [tasks, filterStatus]);
+
   const fetchData = async () => {
     setLoading(true);
-    // ดึงข้อมูลงานซ่อม พร้อมดึงข้อมูลโปรไฟล์ผ่าน member_id (Foreign Key)
     const { data: taskData } = await supabase.from('repair_tasks').select(`
       *,
       profiles:member_id (full_name, phone, role, address, line_id)
     `).order('created_at', { ascending: false });
     
-    const { data: memberData } = await supabase.from('profiles').select('*');
-    
-    if (memberData) {
-      const roleOrder = { admin: 1, technician: 2, customer: 3 };
-      setMembers(memberData.sort((a, b) => (roleOrder[a.role?.toLowerCase()] || 99) - (roleOrder[b.role?.toLowerCase()] || 99)));
-    }
+    const { count: memberCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
 
     if (taskData) {
       setTasks(taskData);
       setStats({
-        pending: taskData.filter(t => t.status === 'pending' || t.status === 'รอรับงาน').length,
-        doing: taskData.filter(t => t.status === 'in_progress' || t.status === 'กำลังซ่อม').length,
-        done: taskData.filter(t => t.status === 'completed' || t.status === 'เสร็จสิ้น').length,
-        allMembers: memberData?.length || 0
+        pending: taskData.filter(t => ['pending', 'รอรับงาน'].includes(t.status)).length,
+        doing: taskData.filter(t => ['in_progress', 'กำลังซ่อม'].includes(t.status)).length,
+        done: taskData.filter(t => ['completed', 'เสร็จสิ้น'].includes(t.status)).length,
+        allMembers: memberCount || 0
       });
     }
     setLoading(false);
   };
 
-  // ฟังก์ชันจัดรูปแบบวันที่และเวลาแจ้งซ่อม (อิงตาม created_at ใน image_f0161e.png)
+  const applyFilter = () => {
+    if (filterStatus === 'all') {
+      setFilteredTasks(tasks);
+    } else {
+      setFilteredTasks(tasks.filter(t => t.status === filterStatus));
+    }
+  };
+
   const formatThaiDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
     }) + ' น.';
   };
 
-  const handleTaskChange = (taskId, field, value) => {
-    setEditTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], [field]: value } }));
+  const getRoleBadge = (task) => {
+    const role = task.profiles?.role?.toLowerCase() || 'guest';
+    const config = {
+      admin: { color: '#ff4d4d', label: 'ADMIN' },
+      technician: { color: '#4d94ff', label: 'TECH' },
+      customer: { color: '#28a745', label: 'MEMBER' },
+      guest: { color: '#777', label: 'GUEST' }
+    };
+    const style = config[role] || config.guest;
+    return (
+      <span style={{ 
+        backgroundColor: style.color, color: '#fff', fontSize: '10px', 
+        padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginLeft: '8px' 
+      }}>
+        {style.label}
+      </span>
+    );
   };
 
-  const saveTaskUpdate = async (taskId) => {
-    const updates = { 
-      ...(editTasks[taskId] || {}),
-      updated_at: new Date() 
-    };
-    if (Object.keys(updates).length <= 1) {
-      setIsTaskModalOpen(false);
-      return;
-    }
+  const handleUpdate = async (taskId) => {
+    const updates = editData[taskId] || {};
     const { error } = await supabase.from('repair_tasks').update(updates).eq('id', taskId);
-    if (error) alert('บันทึกไม่สำเร็จ: ' + error.message);
+    if (error) alert('Error: ' + error.message);
     else {
-      alert('บันทึกข้อมูลเรียบร้อย');
+      alert('บันทึกข้อมูลสำเร็จ');
       fetchData();
       setIsTaskModalOpen(false);
     }
   };
 
   const styles = {
-    body: { backgroundColor: '#000', color: '#fff', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif' },
-    card: { backgroundColor: '#111', border: '1px solid #222', borderRadius: '12px', padding: '15px', textAlign: 'center' },
-    section: { backgroundColor: '#111', borderRadius: '15px', padding: '20px', border: '1px solid #222', marginBottom: '20px' },
-    title: { color: '#ff4d4d', marginBottom: '20px', fontWeight: 'bold' },
-    input: { width: '100%', backgroundColor: '#222', border: '1px solid #444', color: '#fff', padding: '10px', borderRadius: '8px', marginBottom: '10px', boxSizing: 'border-box' },
-    table: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' },
-    th: { textAlign: 'left', color: '#666', padding: '10px', borderBottom: '1px solid #333' },
-    td: { padding: '12px 10px', borderBottom: '1px solid #222' },
-    modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-    modalContent: { backgroundColor: '#1a1a1a', padding: '30px', borderRadius: '15px', width: '500px', border: '1px solid #333', maxHeight: '90vh', overflowY: 'auto' },
-    badge: (role) => ({
-      padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold',
-      backgroundColor: role === 'admin' ? '#d92b2b' : role === 'technician' ? '#2b6cd9' : '#333'
-    })
+    container: { backgroundColor: '#000', color: '#eee', minHeight: '100vh', padding: '30px', fontFamily: 'Inter, sans-serif' },
+    statGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '30px' },
+    statCard: { backgroundColor: '#111', border: '1px solid #222', borderRadius: '16px', padding: '20px', textAlign: 'center' },
+    filterBar: { display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' },
+    filterBtn: (active) => ({
+      padding: '8px 20px', borderRadius: '20px', border: active ? '1px solid #ff4d4d' : '1px solid #333',
+      backgroundColor: active ? 'rgba(255, 77, 77, 0.1)' : 'transparent', color: active ? '#ff4d4d' : '#888',
+      cursor: 'pointer', transition: '0.3s', fontSize: '14px'
+    }),
+    tableSection: { backgroundColor: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '20px', overflow: 'hidden' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    th: { backgroundColor: '#111', color: '#555', textAlign: 'left', padding: '15px', fontSize: '12px', textTransform: 'uppercase' },
+    td: { padding: '15px', borderBottom: '1px solid #111', fontSize: '14px' },
+    input: { backgroundColor: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '8px', borderRadius: '6px' },
+    modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+    modalBody: { backgroundColor: '#111', width: '90%', maxWidth: '600px', padding: '30px', borderRadius: '24px', border: '1px solid #222' }
   };
 
   return (
-    <div style={styles.body}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
-        <div style={styles.card}>รอซ่อม<div style={{ color: '#ffcc00', fontSize: '24px' }}>{stats.pending}</div></div>
-        <div style={styles.card}>กำลังซ่อม<div style={{ color: '#00ccff', fontSize: '24px' }}>{stats.doing}</div></div>
-        <div style={styles.card}>เสร็จสิ้น<div style={{ color: '#00ff88', fontSize: '24px' }}>{stats.done}</div></div>
-        <div style={styles.card}>สมาชิกทั้งหมด<div style={{ fontSize: '24px' }}>{stats.allMembers}</div></div>
+    <div style={styles.container}>
+      {/* 1. Header Stats */}
+      <div style={styles.statGrid}>
+        <div style={styles.statCard}><small style={{color:'#888'}}>รอซ่อม</small><h2 style={{color:'#ffcc00'}}>{stats.pending}</h2></div>
+        <div style={styles.statCard}><small style={{color:'#888'}}>กำลังซ่อม</small><h2 style={{color:'#00ccff'}}>{stats.doing}</h2></div>
+        <div style={styles.statCard}><small style={{color:'#888'}}>เสร็จสิ้น</small><h2 style={{color:'#28a745'}}>{stats.done}</h2></div>
+        <div style={styles.statCard}><small style={{color:'#888'}}>สมาชิก</small><h2>{stats.allMembers}</h2></div>
       </div>
 
-      <div style={styles.section}>
-        <h3 style={styles.title}>🔧 รายการงานซ่อม</h3>
+      {/* 2. Filter Bar */}
+      <div style={styles.filterBar}>
+        {['all', 'pending', 'in_progress', 'completed'].map(s => (
+          <button key={s} onClick={() => setFilterStatus(s)} style={styles.filterBtn(filterStatus === s)}>
+            {s === 'all' ? 'ทั้งหมด' : s === 'pending' ? 'รอซ่อม' : s === 'in_progress' ? 'กำลังซ่อม' : 'เสร็จสิ้น'}
+          </button>
+        ))}
+      </div>
+
+      {/* 3. Task Table */}
+      <div style={styles.tableSection}>
         <table style={styles.table}>
           <thead>
             <tr>
               <th style={styles.th}>เวลาแจ้งซ่อม</th>
-              <th style={styles.th}>ผู้แจ้ง (customer_name)</th>
+              <th style={styles.th}>ผู้แจ้ง & ประเภท</th>
               <th style={styles.th}>อุปกรณ์</th>
               <th style={styles.th}>สถานะ</th>
               <th style={styles.th}>ราคา</th>
-              <th style={styles.th}>บันทึก</th>
+              <th style={styles.th}>การจัดการ</th>
             </tr>
           </thead>
           <tbody>
-            {tasks.map(t => (
+            {filteredTasks.map(t => (
               <tr key={t.id}>
-                <td style={{...styles.td, color: '#888'}}>{formatThaiDate(t.created_at)}</td>
+                <td style={{...styles.td, color:'#666'}}>{formatThaiDate(t.created_at)}</td>
                 <td style={styles.td}>
-                  <span style={{ color: '#00ccff', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => { setSelectedTask(t); setIsTaskModalOpen(true); }}>
-                    {/* ดึงจาก customer_name ที่พบใน image_f0161e.png */}
-                    {t.customer_name || t.guest_name || 'ไม่ระบุชื่อ'}
-                  </span>
+                  <div style={{display:'flex', alignItems:'center'}}>
+                    <strong style={{color:'#00ccff', cursor:'pointer'}} onClick={() => {setSelectedTask(t); setIsTaskModalOpen(true);}}>
+                      {t.customer_name || t.guest_name || 'ไม่ระบุชื่อ'}
+                    </strong>
+                    {getRoleBadge(t)}
+                  </div>
                 </td>
                 <td style={styles.td}>{t.device_type} {t.brand}</td>
                 <td style={styles.td}>
-                  <select style={{backgroundColor:'#222', color:'#ffcc00', border:'1px solid #444'}} value={editTasks[t.id]?.status || t.status} onChange={e => handleTaskChange(t.id, 'status', e.target.value)}>
+                  <select 
+                    style={styles.input} 
+                    value={editData[t.id]?.status || t.status}
+                    onChange={e => setEditData({...editData, [t.id]: {...(editData[t.id] || {}), status: e.target.value}})}
+                  >
                     <option value="pending">รอรับงาน</option>
                     <option value="in_progress">กำลังซ่อม</option>
                     <option value="completed">เสร็จสิ้น</option>
                   </select>
                 </td>
-                <td style={styles.td}><input style={{width:'60px', backgroundColor:'#222', color:'#fff', border:'1px solid #444'}} type="number" defaultValue={t.price} onChange={e => handleTaskChange(t.id, 'price', e.target.value)} /></td>
-                <td style={styles.td}><button style={{backgroundColor:'#00ccff', border:'none', padding:'5px 15px', borderRadius:'5px', cursor:'pointer'}} onClick={() => saveTaskUpdate(t.id)}>บันทึก</button></td>
+                <td style={styles.td}>
+                  <input 
+                    type="number" style={{...styles.input, width:'80px'}} defaultValue={t.price}
+                    onChange={e => setEditData({...editData, [t.id]: {...(editData[t.id] || {}), price: e.target.value}})}
+                  />
+                </td>
+                <td style={styles.td}>
+                  <button 
+                    style={{backgroundColor:'#ff4d4d', border:'none', padding:'8px 15px', borderRadius:'8px', color:'#fff', fontWeight:'bold', cursor:'pointer'}}
+                    onClick={() => handleUpdate(t.id)}
+                  >บันทึก</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
+      {/* 4. Detail Modal */}
       {isTaskModalOpen && selectedTask && (
-        <div style={styles.modalOverlay} onClick={() => setIsTaskModalOpen(false)}>
-          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#00ccff', borderBottom: '1px solid #333', paddingBottom: '10px' }}>📋 รายละเอียดงาน</h3>
-            <div style={{ marginTop: '15px' }}>
-              <p style={{ color: '#ff4d4d', fontWeight: 'bold' }}>👤 ผู้แจ้ง: {selectedTask.customer_name || selectedTask.guest_name}</p>
-              <p>เบอร์โทร: {selectedTask.profiles?.phone || selectedTask.guest_tel || '-'}</p>
-              <p>ที่อยู่: {selectedTask.profiles?.address || '-'}</p>
-              <p style={{ borderTop: '1px solid #333', paddingTop: '10px' }}>
-                🔧 <strong>{selectedTask.device_type}</strong> {selectedTask.brand} {selectedTask.license_plate}
-              </p>
-              <p>อาการ: {selectedTask.description}</p>
+        <div style={styles.modal} onClick={() => setIsTaskModalOpen(false)}>
+          <div style={styles.modalBody} onClick={e => e.stopPropagation()}>
+            <div style={{display:'flex', justifyContent:'space-between', borderBottom:'1px solid #222', paddingBottom:'15px', marginBottom:'20px'}}>
+              <h3>รายละเอียดการแจ้งซ่อม</h3>
+              <button onClick={() => setIsTaskModalOpen(false)} style={{background:'none', border:'none', color:'#888', fontSize:'24px', cursor:'pointer'}}>&times;</button>
             </div>
-            <textarea style={{ ...styles.input, height: '70px', marginTop: '10px' }} defaultValue={selectedTask.technician_comment} placeholder="บันทึกช่าง..." onChange={e => handleTaskChange(selectedTask.id, 'technician_comment', e.target.value)} />
-            <button style={{ backgroundColor: '#d92b2b', color: '#fff', width: '100%', padding: '12px', border: 'none', borderRadius: '8px', marginTop: '10px', fontWeight: 'bold' }} onClick={() => saveTaskUpdate(selectedTask.id)}>บันทึก & ปิด</button>
+            
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
+              <div>
+                <label style={{color:'#555', fontSize:'12px'}}>ข้อมูลผู้ติดต่อ</label>
+                <p><strong>ชื่อ:</strong> {selectedTask.customer_name || selectedTask.guest_name}</p>
+                <p><strong>เบอร์โทร:</strong> {selectedTask.profiles?.phone || selectedTask.phone || selectedTask.guest_tel || '-'}</p>
+                <p><strong>Line:</strong> {selectedTask.profiles?.line_id || '-'}</p>
+              </div>
+              <div>
+                <label style={{color:'#555', fontSize:'12px'}}>ข้อมูลอุปกรณ์</label>
+                <p><strong>ประเภท:</strong> {selectedTask.device_type}</p>
+                <p><strong>แบรนด์/รุ่น:</strong> {selectedTask.brand} {selectedTask.model}</p>
+                <p><strong>ทะเบียน/SN:</strong> {selectedTask.license_plate || '-'}</p>
+              </div>
+            </div>
+
+            <div style={{marginTop:'20px', backgroundColor:'#000', padding:'15px', borderRadius:'12px', border:'1px solid #222'}}>
+              <label style={{color:'#ff4d4d', fontSize:'12px', fontWeight:'bold'}}>อาการเสีย</label>
+              <p style={{marginTop:'5px', color:'#eee'}}>{selectedTask.description}</p>
+            </div>
+
+            <div style={{marginTop:'20px'}}>
+              <label style={{color:'#555', fontSize:'12px'}}>บันทึกการซ่อม (Internal)</label>
+              <textarea 
+                style={{...styles.input, width:'100%', height:'80px', marginTop:'5px', boxSizing:'border-box'}}
+                placeholder="ระบุรายละเอียดการซ่อม..."
+                defaultValue={selectedTask.technician_comment}
+                onChange={e => setEditData({...editData, [selectedTask.id]: {...(editData[selectedTask.id] || {}), technician_comment: e.target.value}})}
+              />
+            </div>
+
+            <button 
+              style={{width:'100%', padding:'15px', backgroundColor:'#ff4d4d', border:'none', borderRadius:'12px', color:'#fff', fontWeight:'bold', marginTop:'20px', cursor:'pointer'}}
+              onClick={() => handleUpdate(selectedTask.id)}
+            >
+              อัปเดตข้อมูลทั้งหมด
+            </button>
           </div>
         </div>
       )}
