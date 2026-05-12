@@ -1,92 +1,97 @@
 import React, { useState } from 'react';
-import { supabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(false);
     setLoading(true);
-    try {
-      // 1. เข้าสู่ระบบด้วย Email และ Password ผ่าน Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
 
-      if (error) throw error;
+    // 1. ตรวจสอบการ Login ผ่านระบบ Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      const user = data.user;
-
-      // 2. ดึงข้อมูลบทบาท (Role) จากตาราง profiles โดยใช้ User ID
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Profile Fetch Error:", profileError);
-        throw new Error("ไม่พบข้อมูลสิทธิ์การใช้งานในระบบ");
-      }
-
-      alert('✅ เข้าสู่ระบบสำเร็จ');
-
-      // 3. ตรวจสอบเงื่อนไขบทบาทเพื่อแยกหน้าการใช้งาน
-      if (profile.role === 'admin') {
-        navigate('/admin');
-      } else {
-        // ส่ง userId ไปยังหน้าแจ้งซ่อมเพื่อให้ระบบดึงข้อมูลส่วนตัวได้ถูกต้อง
-        navigate('/repair', { state: { userId: user.id } });
-      }
-
-    } catch (err) {
-      alert('❌ ล็อกอินไม่สำเร็จ: ' + err.message);
-    } finally {
+    if (authError) {
+      alert('เข้าสู่ระบบไม่สำเร็จ: ' + authError.message);
       setLoading(false);
+      return;
+    }
+
+    // 2. ดึงข้อมูล Role จากตาราง profiles เพื่อแยกหน้าไปตามตำแหน่ง
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (profileError) {
+      alert('ไม่สามารถดึงข้อมูลสิทธิ์ผู้ใช้งานได้');
+      setLoading(false);
+      return;
+    }
+
+    // 3. ระบบนำทางตาม Role (Admin / Technician / Customer)
+    const role = profile.role?.toUpperCase(); // ปรับให้เป็นตัวพิมพ์ใหญ่เพื่อความแม่นยำ
+
+    if (role === 'ADMIN') {
+      alert('เข้าสู่ระบบในฐานะ: ผู้ดูแลระบบ');
+      navigate('/admin');
+    } else if (role === 'TECHNICIAN') {
+      alert('เข้าสู่ระบบในฐานะ: ช่างเทคนิค');
+      navigate('/admin'); // หรือหน้าสำหรับช่างโดยเฉพาะที่คุณเตรียมไว้
+    } else {
+      alert('เข้าสู่ระบบในฐานะ: ลูกค้าสมาชิก');
+      navigate('/member-dashboard');
     }
   };
 
   const styles = {
-    wrapper: { backgroundColor: '#000', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' },
-    container: { background: '#111', padding: '40px', borderRadius: '15px', border: '1px solid #333', width: '350px', color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' },
-    header: { textAlign: 'center', marginBottom: '25px', color: '#ff4d4d', fontSize: '24px', fontWeight: 'bold' },
-    input: { padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px', width: '100%', boxSizing: 'border-box' },
-    button: { padding: '15px', background: '#d92b2b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: 'background 0.3s' },
-    form: { display: 'flex', flexDirection: 'column', gap: '15px' }
+    wrapper: { backgroundColor: '#0a0a0a', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: 'sans-serif' },
+    card: { backgroundColor: '#111', padding: '40px', borderRadius: '24px', border: '1px solid #222', width: '100%', maxWidth: '400px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' },
+    title: { color: '#ff4d4d', fontSize: '32px', marginBottom: '10px', fontWeight: 'bold', letterSpacing: '1px' },
+    subTitle: { color: '#666', fontSize: '14px', marginBottom: '30px' },
+    input: { width: '100%', padding: '15px', marginBottom: '15px', borderRadius: '12px', border: '1px solid #333', backgroundColor: '#1a1a1a', color: '#fff', boxSizing: 'border-box', outline: 'none' },
+    button: { width: '100%', padding: '16px', borderRadius: '12px', border: 'none', backgroundColor: '#ff4d4d', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', transition: 'opacity 0.3s' }
   };
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.container}>
-        <div style={styles.header}>Promcare Service</div>
-        <form onSubmit={handleLogin} style={styles.form}>
+      <div style={styles.card}>
+        <h2 style={styles.title}>PROMCARE</h2>
+        <p style={styles.subTitle}>เข้าสู่ระบบเพื่อจัดการงานซ่อมของคุณ</p>
+        <form onSubmit={handleLogin}>
           <input 
+            style={styles.input} 
             type="email" 
             placeholder="อีเมลผู้ใช้งาน" 
             required 
-            style={styles.input}
             onChange={(e) => setEmail(e.target.value)} 
           />
           <input 
+            style={styles.input} 
             type="password" 
             placeholder="รหัสผ่าน" 
             required 
-            style={styles.input}
             onChange={(e) => setPassword(e.target.value)} 
           />
-          <button 
-            type="submit" 
-            disabled={loading} 
-            style={{...styles.button, opacity: loading ? 0.7 : 1}}
-          >
+          <button style={styles.button} type="submit" disabled={loading}>
             {loading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
           </button>
         </form>
+        <p 
+          onClick={() => navigate('/')} 
+          style={{ color: '#444', marginTop: '25px', cursor: 'pointer', fontSize: '14px' }}
+        >
+          ← กลับไปหน้าหลัก
+        </p>
       </div>
     </div>
   );
