@@ -5,7 +5,14 @@ import { useNavigate } from 'react-router-dom';
 const GuestRepair = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    customer_name: '', phone: '', device_type: '', brand: '', model: '', description: ''
+    customer_name: '', 
+    phone: '', 
+    device_type: '', 
+    brand: '', 
+    model: '', 
+    license_plate: '', // เพิ่มทะเบียน
+    color: '',         // เพิ่มสี
+    description: ''
   });
 
   const handleSubmit = async (e) => {
@@ -35,7 +42,7 @@ const GuestRepair = () => {
     container: {
       backgroundColor: '#111',
       width: '100%',
-      maxWidth: '500px',
+      maxWidth: '550px', // ขยายความกว้างเล็กน้อยเพื่อให้รองรับ Grid 2 คอลัมน์ได้สวยขึ้น
       padding: '40px',
       borderRadius: '24px',
       border: '1px solid #222',
@@ -45,7 +52,7 @@ const GuestRepair = () => {
     title: { fontSize: '24px', fontWeight: '600', color: '#fff', margin: '0 0 10px 0', letterSpacing: '0.5px' },
     subTitle: { fontSize: '14px', color: '#666', margin: 0 },
     formGroup: { marginBottom: '20px' },
-    label: { display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' },
+    label: { display: 'block', fontSize: '11px', color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' },
     input: {
       width: '100%',
       backgroundColor: '#1a1a1a',
@@ -66,7 +73,7 @@ const GuestRepair = () => {
       padding: '14px 16px',
       color: '#fff',
       fontSize: '15px',
-      height: '120px',
+      height: '100px',
       resize: 'none',
       boxSizing: 'border-box',
       outline: 'none'
@@ -126,12 +133,13 @@ const GuestRepair = () => {
             />
           </div>
 
+          {/* แถวที่ 1: ประเภท และ ยี่ห้อ */}
           <div style={{ ...styles.formGroup, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div>
               <label style={styles.label}>Device Type</label>
               <input 
                 style={styles.input} 
-                placeholder="ประเภทอุปกรณ์" 
+                placeholder="เช่น รถยนต์, โน้ตบุ๊ก" 
                 required 
                 onChange={e => setFormData({...formData, device_type: e.target.value})} 
               />
@@ -140,8 +148,28 @@ const GuestRepair = () => {
               <label style={styles.label}>Brand / Model</label>
               <input 
                 style={styles.input} 
-                placeholder="ยี่ห้อ/รุ่น" 
+                placeholder="ยี่ห้อ / รุ่น" 
                 onChange={e => setFormData({...formData, brand: e.target.value})} 
+              />
+            </div>
+          </div>
+
+          {/* แถวที่ 2: ทะเบียน และ สี (ส่วนที่เพิ่มใหม่) */}
+          <div style={{ ...styles.formGroup, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div>
+              <label style={styles.label}>License Plate</label>
+              <input 
+                style={styles.input} 
+                placeholder="หมายเลขทะเบียน" 
+                onChange={e => setFormData({...formData, license_plate: e.target.value})} 
+              />
+            </div>
+            <div>
+              <label style={styles.label}>Color</label>
+              <input 
+                style={styles.input} 
+                placeholder="สีของอุปกรณ์" 
+                onChange={e => setFormData({...formData, color: e.target.value})} 
               />
             </div>
           </div>
