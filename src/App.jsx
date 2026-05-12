@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { supabase } from './supabaseClient'; // ตรวจสอบว่ามีไฟล์นี้เพื่อดึงข้อมูล auth
 
 // นำเข้า Component ทั้งหมด
 import Home from './Home';
@@ -7,32 +8,51 @@ import Login from './Login';
 import AdminDashboard from './AdminDashboard';
 import CustomerRepair from './CustomerRepair';
 import GuestRepair from './GuestRepair';
-import MemberDashboard from './MemberDashboard'; // นำเข้าหน้าสมาชิกใหม่
+import MemberDashboard from './MemberDashboard';
 
 function App() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    // 1. ตรวจสอบ session ปัจจุบันเมื่อเปิดแอป
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // 2. ติดตามการเปลี่ยนแปลงสถานะ (Login / Logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <Router>
       <div className="App">
         <Routes>
-          {/* 1. หน้าแรกสุด: เมนูหลัก 3 ช่อง (แจ้งซ่อม/ติดตาม/เข้าระบบ) */}
+          {/* หน้าแรกและหน้าแจ้งซ่อมทั่วไป */}
           <Route path="/" element={<Home />} />
-
-          {/* 2. หน้าแจ้งซ่อมสำหรับลูกค้าทั่วไป (ไม่ต้องล็อกอิน) */}
           <Route path="/repair-guest" element={<GuestRepair />} />
-
-          {/* 3. หน้า Login สำหรับเจ้าหน้าที่ และสมาชิก */}
+          
+          {/* หน้า Login */}
           <Route path="/login" element={<Login />} />
 
-          {/* 4. หน้าสำหรับสมาชิก (ดูโปรไฟล์, แก้ไขข้อมูล, ติดตามสถานะงานซ่อมของตัวเอง) */}
-          <Route path="/member-dashboard" element={<MemberDashboard />} />
+          {/* แก้ไข: ส่ง session ไปให้ MemberDashboard และ CustomerRepair */}
+          <Route 
+            path="/member-dashboard" 
+            element={session ? <MemberDashboard session={session} /> : <Navigate to="/login" />} 
+          />
+          
+          <Route 
+            path="/repair-member" 
+            element={session ? <CustomerRepair session={session} /> : <Navigate to="/login" />} 
+          />
 
-          {/* 5. หน้าสำหรับ Admin จัดการระบบหลังบ้าน */}
+          {/* หน้า Admin */}
           <Route path="/admin" element={<AdminDashboard />} />
 
-          {/* 6. หน้าสำหรับสมาชิกแจ้งซ่อม (เวอร์ชันที่ต้องล็อกอิน) */}
-          <Route path="/repair-member" element={<CustomerRepair />} />
-
-          {/* 7. กรณีระบุ URL ไม่ถูกต้อง ให้ดีดกลับไปหน้าเมนูหลัก (Home) */}
+          {/* Redirect หาก URL ไม่ถูกต้อง */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
