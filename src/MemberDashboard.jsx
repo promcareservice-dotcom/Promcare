@@ -17,7 +17,6 @@ const MemberDashboard = ({ session }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. ดึงข้อมูลโปรไฟล์
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -25,7 +24,6 @@ const MemberDashboard = ({ session }) => {
         .single();
       setProfile(profileData);
 
-      // 2. ดึงข้อมูลรายการแจ้งซ่อม
       const { data: tasksData } = await supabase
         .from('repair_tasks')
         .select('*')
@@ -33,7 +31,7 @@ const MemberDashboard = ({ session }) => {
         .order('created_at', { ascending: false });
       setMyTasks(tasksData || []);
     } catch (error) {
-      console.error('Error fetching data:', error.message);
+      console.error('Error:', error.message);
     } finally {
       setLoading(false);
     }
@@ -47,11 +45,10 @@ const MemberDashboard = ({ session }) => {
         .eq('id', taskId);
 
       if (error) throw error;
-      
-      alert(status === 'confirmed' ? '✅ ยืนยันการซ่อมเรียบร้อย' : '❌ ปฏิเสธการซ่อมเรียบร้อย');
+      alert(status === 'confirmed' ? '✅ รับทราบการยืนยันครับ' : '❌ ปฏิเสธการซ่อมเรียบร้อย');
       fetchData();
     } catch (error) {
-      alert('เกิดข้อผิดพลาด: ' + error.message);
+      alert('Error: ' + error.message);
     }
   };
 
@@ -59,61 +56,65 @@ const MemberDashboard = ({ session }) => {
     container: { padding: '20px', maxWidth: '600px', margin: '0 auto', color: '#fff', fontFamily: 'sans-serif' },
     profileCard: { backgroundColor: '#111', padding: '30px', borderRadius: '25px', textAlign: 'center', marginBottom: '20px', border: '1px solid #222' },
     repairSection: { backgroundColor: '#111', padding: '20px', borderRadius: '25px', border: '1px solid #222' },
-    taskCard: { borderBottom: '1px solid #222', padding: '15px 0' },
-    offerBox: { backgroundColor: '#fff3cd', color: '#856404', padding: '15px', borderRadius: '15px', marginTop: '10px', textAlign: 'left' },
+    taskCard: { borderBottom: '1px solid #222', padding: '20px 0', position: 'relative' },
+    statusBadge: { fontSize: '11px', padding: '3px 10px', borderRadius: '15px', backgroundColor: '#333', color: '#aaa', textTransform: 'uppercase' },
     btnMain: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '15px', borderRadius: '12px', cursor: 'pointer', width: '100%', fontSize: '16px', fontWeight: 'bold', marginTop: '20px' },
-    btnConfirm: { backgroundColor: '#28a745', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', marginRight: '10px', fontWeight: 'bold' },
-    btnReject: { backgroundColor: '#666', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }
+    offerBox: { backgroundColor: '#fff3cd', color: '#856404', padding: '15px', borderRadius: '15px', marginTop: '15px' }
   };
 
-  if (loading) return <div style={{ textAlign: 'center', color: '#888', marginTop: '50px' }}>กำลังโหลดข้อมูล...</div>;
+  if (loading) return <div style={{ textAlign: 'center', color: '#888', marginTop: '50px' }}>Loading...</div>;
 
   return (
     <div style={styles.container}>
-      {/* Member Profile Section */}
+      {/* ส่วน Profile */}
       <div style={styles.profileCard}>
         <h2 style={{ color: '#ff4d4d', marginBottom: '25px', marginTop: 0 }}>Member Profile</h2>
-        <div style={{ color: '#888', fontSize: '12px', marginBottom: '5px' }}>FULL NAME</div>
-        <div style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '20px' }}>{profile?.full_name || 'ไม่พบข้อมูล'}</div>
-        
-        <div style={{ color: '#888', fontSize: '12px', marginBottom: '5px' }}>PHONE NUMBER</div>
-        <div style={{ fontSize: '18px', marginBottom: '20px' }}>{profile?.phone || 'ไม่พบข้อมูล'}</div>
-        
-        <button style={styles.btnMain} onClick={() => navigate('/repair-member')}>
-          + แจ้งซ่อมอุปกรณ์ใหม่
-        </button>
+        <div style={{ color: '#888', fontSize: '11px', letterSpacing: '1px' }}>FULL NAME</div>
+        <div style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '15px' }}>{profile?.full_name || '-'}</div>
+        <div style={{ color: '#888', fontSize: '11px', letterSpacing: '1px' }}>PHONE NUMBER</div>
+        <div style={{ fontSize: '18px', marginBottom: '20px' }}>{profile?.phone || '-'}</div>
+        <button style={styles.btnMain} onClick={() => navigate('/repair-member')}>+ แจ้งซ่อมอุปกรณ์ใหม่</button>
       </div>
 
-      {/* Repair Tracking Section */}
+      {/* ส่วนรายการแจ้งซ่อม */}
       <div style={styles.repairSection}>
-        <h3 style={{ textAlign: 'center', color: '#ff4d4d', marginBottom: '20px', marginTop: 0 }}>Repair Tracking</h3>
+        <h3 style={{ textAlign: 'center', color: '#ff4d4d', marginBottom: '10px', marginTop: 0 }}>Repair Tracking</h3>
         {myTasks.length === 0 ? (
           <p style={{ textAlign: 'center', color: '#444' }}>ไม่มีรายการแจ้งซ่อม</p>
         ) : (
           myTasks.map((task) => (
             <div key={task.id} style={styles.taskCard}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <strong>{task.device_type}</strong>
-                  <div style={{ fontSize: '13px', color: '#888' }}>{task.brand}</div>
+                  <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{task.device_type}</div>
+                  <div style={{ fontSize: '14px', color: '#ff4d4d', marginTop: '2px' }}>
+                    {task.plate_number ? `ทะเบียน: ${task.plate_number}` : task.brand}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#666', marginTop: '5px' }}>
+                    อาการ: {task.details || 'ตรวจสอบอาการเสีย'}
+                  </div>
                 </div>
-                <span style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#333', borderRadius: '10px' }}>{task.status}</span>
+                <div style={styles.statusBadge}>{task.status}</div>
               </div>
 
-              {/* ส่วนเสนอราคา */}
+              {/* ส่วนเสนอราคาจากแอดมิน */}
               {task.price > 0 && task.customer_confirmation === 'pending' && (
                 <div style={styles.offerBox}>
-                  <p style={{ margin: '0 0 5px 0' }}><strong>เสนอราคาซ่อม:</strong> {task.technician_comment}</p>
-                  <p style={{ fontSize: '20px', fontWeight: 'bold', margin: '5px 0' }}>฿ {task.price.toLocaleString()}</p>
-                  <div style={{ marginTop: '10px' }}>
-                    <button style={styles.btnConfirm} onClick={() => handleConfirmRepair(task.id, 'confirmed')}>ตกลงซ่อม</button>
-                    <button style={styles.btnReject} onClick={() => handleConfirmRepair(task.id, 'rejected')}>ปฏิเสธ</button>
+                  <p style={{ margin: '0', fontSize: '14px' }}>ช่างแจ้งราคา: {task.technician_comment}</p>
+                  <p style={{ fontSize: '22px', fontWeight: 'bold', margin: '8px 0' }}>฿ {task.price.toLocaleString()}</p>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => handleConfirmRepair(task.id, 'confirmed')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: '#28a745', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>ตกลงซ่อม</button>
+                    <button onClick={() => handleConfirmRepair(task.id, 'rejected')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: '#666', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>ปฏิเสธ</button>
                   </div>
                 </div>
               )}
 
-              {task.customer_confirmation === 'confirmed' && <div style={{ color: '#28a745', fontSize: '13px', marginTop: '10px' }}>✅ ยืนยันการซ่อมแล้ว</div>}
-              {task.customer_confirmation === 'rejected' && <div style={{ color: '#ff4d4d', fontSize: '13px', marginTop: '10px' }}>❌ ปฏิเสธการซ่อม</div>}
+              {/* แสดงผลเมื่อยืนยันแล้วเหมือนในภาพ e02981.png */}
+              {task.customer_confirmation === 'confirmed' && (
+                <div style={{ color: '#28a745', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>✅ ยืนยันการซ่อมแล้ว</span>
+                </div>
+              )}
             </div>
           ))
         )}
