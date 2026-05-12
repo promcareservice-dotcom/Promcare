@@ -7,8 +7,8 @@ const MemberDashboard = ({ session }) => {
   const [profile, setProfile] = useState(null);
   const [myTasks, setMyTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false); // ควบคุมโหมดแก้ไข
-  const [editForm, setEditForm] = useState({}); // เก็บข้อมูลที่กำลังแก้ไข
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -70,6 +70,7 @@ const MemberDashboard = ({ session }) => {
         .eq('id', taskId);
 
       if (error) throw error;
+      alert(status === 'confirmed' ? '✅ คุณยืนยันการซ่อมเรียบร้อย' : '❌ คุณปฏิเสธการซ่อมรายการนี้');
       fetchData();
     } catch (error) {
       alert('Error: ' + error.message);
@@ -87,70 +88,39 @@ const MemberDashboard = ({ session }) => {
     btnEdit: { backgroundColor: '#333', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', cursor: 'pointer', width: '100%', marginTop: '10px', fontWeight: 'bold' },
     btnSave: { backgroundColor: '#28a745', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', cursor: 'pointer', width: '100%', marginTop: '10px', fontWeight: 'bold' },
     btnMain: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '15px', borderRadius: '12px', cursor: 'pointer', width: '100%', fontSize: '16px', fontWeight: 'bold', marginTop: '15px' },
-    taskItem: { borderBottom: '1px solid #222', padding: '20px 0' },
-    badge: (bgColor) => ({ backgroundColor: bgColor, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' })
+    taskItem: { borderBottom: '1px solid #222', padding: '25px 0' },
+    badge: (bgColor) => ({ backgroundColor: bgColor, padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold', color: '#fff', display: 'inline-block' }),
+    offerBox: { backgroundColor: '#fff3cd', color: '#856404', padding: '15px', borderRadius: '15px', marginTop: '15px', border: '1px solid #ffeeba' }
   };
 
-  if (loading) return <div style={{ textAlign: 'center', color: '#888', marginTop: '50px' }}>กำลังโหลด...</div>;
+  if (loading) return <div style={{ textAlign: 'center', color: '#888', marginTop: '50px' }}>กำลังโหลดข้อมูล...</div>;
 
   return (
     <div style={styles.container}>
+      {/* ส่วนข้อมูลสมาชิก */}
       <div style={styles.card}>
         <div style={styles.title}>ข้อมูลสมาชิก</div>
-        
         <div style={styles.infoGrid}>
-          {/* ชื่อ-นามสกุล */}
           <div>
             <div style={styles.label}>ชื่อ - นามสกุล</div>
-            {isEditing ? (
-              <input style={styles.input} value={editForm.full_name || ''} onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} />
-            ) : (
-              <div style={styles.value}>{profile?.full_name || '-'}</div>
-            )}
+            {isEditing ? <input style={styles.input} value={editForm.full_name || ''} onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} /> : <div style={styles.value}>{profile?.full_name || '-'}</div>}
           </div>
-
-          {/* Username */}
           <div>
             <div style={styles.label}>ชื่อผู้ใช้ (Username)</div>
-            {isEditing ? (
-              <input style={styles.input} value={editForm.username || ''} onChange={(e) => setEditForm({...editForm, username: e.target.value})} />
-            ) : (
-              <div style={styles.value}>{profile?.username || '-'}</div>
-            )}
+            {isEditing ? <input style={styles.input} value={editForm.username || ''} onChange={(e) => setEditForm({...editForm, username: e.target.value})} /> : <div style={styles.value}>{profile?.username || '-'}</div>}
           </div>
-
-          {/* เบอร์โทร */}
           <div>
             <div style={styles.label}>เบอร์โทรศัพท์</div>
-            {isEditing ? (
-              <input style={styles.input} value={editForm.phone || ''} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} />
-            ) : (
-              <div style={styles.value}>{profile?.phone || '-'}</div>
-            )}
+            {isEditing ? <input style={styles.input} value={editForm.phone || ''} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} /> : <div style={styles.value}>{profile?.phone || '-'}</div>}
           </div>
-
-          {/* Line ID */}
           <div>
             <div style={styles.label}>ไลน์ไอดี (Line ID)</div>
-            {isEditing ? (
-              <input style={styles.input} value={editForm.line_id || ''} onChange={(e) => setEditForm({...editForm, line_id: e.target.value})} />
-            ) : (
-              <div style={styles.value}>{profile?.line_id || '-'}</div>
-            )}
+            {isEditing ? <input style={styles.input} value={editForm.line_id || ''} onChange={(e) => setEditForm({...editForm, line_id: e.target.value})} /> : <div style={styles.value}>{profile?.line_id || '-'}</div>}
           </div>
-
-          <div style={{ gridColumn: 'span 2' }}>
-            <div style={styles.label}>อีเมล (แก้ไขไม่ได้)</div>
-            <div style={{ ...styles.value, color: '#666' }}>{session.user.email}</div>
-          </div>
-
+          <div style={{ gridColumn: 'span 2' }}><div style={styles.label}>อีเมล</div><div style={{ ...styles.value, color: '#666' }}>{session.user.email}</div></div>
           <div style={{ gridColumn: 'span 2' }}>
             <div style={styles.label}>ที่อยู่ปัจจุบัน</div>
-            {isEditing ? (
-              <textarea style={{ ...styles.input, height: '60px', fontFamily: 'inherit' }} value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} />
-            ) : (
-              <div style={styles.value}>{profile?.address || '-'}</div>
-            )}
+            {isEditing ? <textarea style={{ ...styles.input, height: '60px', fontFamily: 'inherit' }} value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} /> : <div style={styles.value}>{profile?.address || '-'}</div>}
           </div>
         </div>
 
@@ -162,33 +132,61 @@ const MemberDashboard = ({ session }) => {
         ) : (
           <button style={styles.btnEdit} onClick={() => setIsEditing(true)}>📝 แก้ไข / อัปเดตข้อมูล</button>
         )}
-        
-        {!isEditing && (
-          <button style={styles.btnMain} onClick={() => navigate('/repair-member')}>+ แจ้งซ่อมอุปกรณ์ใหม่</button>
-        )}
+        {!isEditing && <button style={styles.btnMain} onClick={() => navigate('/repair-member')}>+ แจ้งซ่อมอุปกรณ์ใหม่</button>}
       </div>
 
+      {/* ส่วนรายการแจ้งซ่อม */}
       <div style={styles.card}>
         <div style={styles.title}>รายการแจ้งซ่อมของสมาชิก</div>
-        {myTasks.map((task, index) => (
-          <div key={task.id} style={styles.taskItem}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>#{myTasks.length - index} | รายการที่แจ้ง</span>
-              <span style={{ fontSize: '12px', color: '#666' }}>{new Date(task.created_at).toLocaleString('th-TH')}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{task.device_type}</div>
-                <div style={{ fontSize: '14px', color: '#ff4d4d' }}>ทะเบียน: {task.plate_number || task.brand}</div>
-                <div style={{ fontSize: '13px', color: '#888' }}>อาการ: {task.details}</div>
+        {myTasks.length === 0 ? <p style={{textAlign:'center', color:'#444'}}>ไม่มีประวัติการแจ้งซ่อม</p> : (
+          myTasks.map((task, index) => (
+            <div key={task.id} style={styles.taskItem}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>#{myTasks.length - index} | รายการที่แจ้ง</span>
+                <span style={{ fontSize: '11px', color: '#666' }}>{new Date(task.created_at).toLocaleString('th-TH')}</span>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={styles.badge(task.status === 'ซ่อมเสร็จแล้ว' ? '#28a745' : '#333')}>{task.status}</div>
-                <div style={{ fontSize: '11px', color: '#ff4d4d', marginTop: '8px', fontWeight: 'bold' }}>💰 {task.payment_status || 'รอสรุปยอด'}</div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '19px', fontWeight: 'bold' }}>{task.device_type}</div>
+                  <div style={{ fontSize: '14px', color: '#ff4d4d', marginTop: '2px' }}>ทะเบียน: {task.plate_number || task.brand}</div>
+                  <div style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>อาการ: {task.details}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={styles.badge(task.status === 'ซ่อมเสร็จแล้ว' ? '#28a745' : '#333')}>{task.status}</div>
+                  <div style={{ fontSize: '11px', color: task.payment_status === 'ชำระแล้ว' ? '#28a745' : '#ff4d4d', marginTop: '8px', fontWeight: 'bold' }}>
+                    💰 {task.payment_status || 'ยังไม่ชำระ'}
+                  </div>
+                </div>
               </div>
+
+              {/* ส่วนเสนอราคาจากแอดมิน */}
+              {task.price > 0 && task.customer_confirmation === 'pending' && (
+                <div style={styles.offerBox}>
+                  <div style={{ fontSize: '13px', borderBottom: '1px solid rgba(133, 100, 4, 0.1)', paddingBottom: '8px', marginBottom: '8px' }}>
+                    <strong>ช่างแจ้งว่า:</strong> {task.technician_comment || 'ตรวจสอบอาการแล้ว'}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px' }}>ราคาประเมิน: </span>
+                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>฿ {task.price.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                    <button onClick={() => handleConfirmRepair(task.id, 'confirmed')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', backgroundColor: '#28a745', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>ตกลงซ่อม</button>
+                    <button onClick={() => handleConfirmRepair(task.id, 'rejected')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', backgroundColor: '#666', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>ปฏิเสธ</button>
+                  </div>
+                </div>
+              )}
+
+              {/* แสดงสถานะการตอบกลับ */}
+              {task.customer_confirmation === 'confirmed' && (
+                <div style={{ color: '#28a745', fontSize: '12px', marginTop: '10px', fontWeight: 'bold' }}>✅ ยืนยันการซ่อมแล้ว (กำลังรอดำเนินการ)</div>
+              )}
+              {task.customer_confirmation === 'rejected' && (
+                <div style={{ color: '#ff4d4d', fontSize: '12px', marginTop: '10px', fontWeight: 'bold' }}>❌ ปฏิเสธการซ่อมรายการนี้</div>
+              )}
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
