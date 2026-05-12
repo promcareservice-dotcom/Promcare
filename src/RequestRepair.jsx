@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // ตรวจสอบ Path ให้ถูกต้อง
+import { supabase } from './supabaseClient'; // ตรวจสอบ Path ให้ถูกต้อง
 
 const RepairRequest = () => {
   const [formData, setFormData] = useState({
