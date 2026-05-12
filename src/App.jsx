@@ -4,12 +4,12 @@ import { supabase } from './supabaseClient';
 
 // Import หน้าเดิมที่มีอยู่
 import Login from './Login';
-import AdminDashboard from './AdminDashboard';
 
 // Import หน้าใหม่ที่เพิ่งสร้างใน src
 import Home from './Home';
 import RequestRepair from './RequestRepair';
 import TrackStatus from './TrackStatus';
+import AdminPage from './AdminPage'; // เพิ่มไฟล์ Dashboard ตัวใหม่สไตล์ Dark Mode
 
 function App() {
   const [session, setSession] = useState(null);
@@ -56,10 +56,11 @@ function App() {
             element={session ? <Navigate to="/admin" /> : <Login />} 
           />
           
-          {/* หน้า Admin: ถ้าไม่ได้ Login ให้เด้งไปหน้า Login ก่อน */}
+          {/* หน้า Admin: ใช้ AdminPage ตัวใหม่สไตล์ Dark Mode ตามภาพ image_ff8aa0.png */}
+          {/* ระบบจะเช็ค: ถ้าไม่ได้ Login ให้เด้งไปหน้า Login ก่อนเพื่อความปลอดภัย */}
           <Route 
             path="/admin" 
-            element={session ? <AdminDashboard /> : <Navigate to="/login" />} 
+            element={session ? <AdminPage /> : <Navigate to="/login" />} 
           />
 
           {/* กรณีพิมพ์ URL อื่นๆ ให้เด้งกลับไปหน้าแรก (Home) */}
