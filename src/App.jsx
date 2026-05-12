@@ -5,11 +5,12 @@ import { supabase } from './supabaseClient';
 // Import หน้าเดิมที่มีอยู่
 import Login from './Login';
 
-// Import หน้าใหม่ที่เพิ่งสร้างใน src
+// Import หน้าที่มีอยู่ใน src
 import Home from './Home';
 import RequestRepair from './RequestRepair';
 import TrackStatus from './TrackStatus';
-import AdminPage from './AdminPage'; // เพิ่มไฟล์ Dashboard ตัวใหม่สไตล์ Dark Mode
+// แก้ไขจุดนี้: ชี้ชื่อ AdminPage ไปที่ไฟล์ AdminDashboard.jsx ที่คุณมีอยู่จริง
+import AdminPage from './AdminDashboard'; 
 
 function App() {
   const [session, setSession] = useState(null);
@@ -30,7 +31,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // หน้าจอรอโหลด
+  // หน้าจอรอโหลดสไตล์ Dark Mode
   if (loading) {
     return (
       <div style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'Kanit' }}>
@@ -43,27 +44,26 @@ function App() {
     <Router>
       <div className="app-container" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', color: 'white' }}>
         <Routes>
-          {/* หน้าแรก (Public): ให้ทุกคนเข้าถึงได้เพื่อเลือกบริการ */}
+          {/* หน้าแรก (Public): ให้ทุกคนเข้าถึงได้ */}
           <Route path="/" element={<Home />} />
           
-          {/* หน้าแจ้งซ่อม และ หน้าเช็คสถานะ: เปิดให้ลูกค้าทั่วไปเข้าได้ */}
+          {/* หน้าแจ้งซ่อม และ หน้าเช็คสถานะ */}
           <Route path="/request" element={<RequestRepair />} />
           <Route path="/track" element={<TrackStatus />} />
           
-          {/* หน้า Login: ถ้า Login แล้วให้เด้งไปหน้า Admin ทันที */}
+          {/* หน้า Login: ถ้า Login แล้วให้ไปหน้า Admin */}
           <Route 
             path="/login" 
             element={session ? <Navigate to="/admin" /> : <Login />} 
           />
           
-          {/* หน้า Admin: ใช้ AdminPage ตัวใหม่สไตล์ Dark Mode ตามภาพ image_ff8aa0.png */}
-          {/* ระบบจะเช็ค: ถ้าไม่ได้ Login ให้เด้งไปหน้า Login ก่อนเพื่อความปลอดภัย */}
+          {/* หน้า Admin Dashboard: ตรวจสอบสิทธิ์การเข้าถึง */}
           <Route 
             path="/admin" 
             element={session ? <AdminPage /> : <Navigate to="/login" />} 
           />
 
-          {/* กรณีพิมพ์ URL อื่นๆ ให้เด้งกลับไปหน้าแรก (Home) */}
+          {/* กรณีพิมพ์ URL ผิด ให้กลับไปหน้าแรก */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
