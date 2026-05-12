@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from './supabaseClient'; // ตรวจสอบว่ามีไฟล์นี้ในโปรเจกต์
+import { supabase } from './supabaseClient';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -14,20 +14,29 @@ const Home = () => {
     line_id: '',
     email: '',
     address: '',
-    role: 'customer' // กำหนดเริ่มต้นเป็นลูกค้า
+    role: 'customer'
   });
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
     
-    // ส่งข้อมูลไปยังตาราง profiles ใน Supabase
-    const { error } = await supabase.from('profiles').insert([regData]);
+    // สร้าง username อัตโนมัติเพื่อแก้ปัญหา Not-null constraint ใน Database
+    // โดยดึงจากส่วนหน้าของ email + เลขสุ่ม 4 หลัก
+    const generatedUsername = regData.email.split('@')[0] + Math.floor(1000 + Math.random() * 9000);
+    
+    // ส่งข้อมูลไปยังตาราง profiles ใน Supabase พร้อม username
+    const { error } = await supabase.from('profiles').insert([
+      { 
+        ...regData, 
+        username: generatedUsername 
+      }
+    ]);
 
     if (error) {
       alert('เกิดข้อผิดพลาด: ' + error.message);
     } else {
-      alert('ลงทะเบียนสำเร็จ! ข้อมูลของคุณถูกส่งไปยังแอดมินเรียบร้อยแล้ว');
+      alert('ลงทะเบียนสำเร็จ! ยินดีต้อนรับสู่ครอบครัว PROMCARE ข้อมูลของคุณถูกส่งถึงแอดมินแล้ว');
       setIsModalOpen(false);
       setRegData({ full_name: '', phone: '', line_id: '', email: '', address: '', role: 'customer' });
     }
@@ -65,7 +74,8 @@ const Home = () => {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
     },
     icon: { fontSize: '50px', marginBottom: '20px' },
     cardTitle: { fontSize: '24px', marginBottom: '15px', fontWeight: '600' },
@@ -78,28 +88,29 @@ const Home = () => {
       cursor: 'pointer',
       width: '100%',
       fontSize: '16px',
-      transition: 'transform 0.2s'
+      transition: 'all 0.2s'
     },
-    // Modal Styles
     modalOverlay: {
       position: 'fixed',
       top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.9)',
+      backgroundColor: 'rgba(0,0,0,0.85)',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 1000,
+      backdropFilter: 'blur(5px)',
       padding: '20px'
     },
     modalContent: {
       backgroundColor: '#111',
       width: '100%',
       maxWidth: '500px',
-      padding: '30px',
+      padding: '35px',
       borderRadius: '30px',
       border: '1px solid #333',
       maxHeight: '90vh',
-      overflowY: 'auto'
+      overflowY: 'auto',
+      boxShadow: '0 10px 40px rgba(0,0,0,0.8)'
     },
     input: {
       width: '100%',
@@ -110,13 +121,14 @@ const Home = () => {
       color: '#fff',
       marginBottom: '15px',
       fontSize: '15px',
-      boxSizing: 'border-box'
-    }
+      boxSizing: 'border-box',
+      outline: 'none'
+    },
+    label: { fontSize: '13px', color: '#888', display: 'block', marginBottom: '5px', marginLeft: '5px' }
   };
 
   return (
     <div style={styles.container}>
-      {/* Header Section */}
       <div style={styles.header}>
         <h1 style={styles.brandName}>PROMCARE</h1>
         <p style={styles.subTitle}>Professional Service & Repair Management</p>
@@ -150,7 +162,7 @@ const Home = () => {
           </button>
         </div>
 
-        {/* 3. สมัครสมาชิก (New Feature) */}
+        {/* 3. สมัครสมาชิก */}
         <div style={styles.card}>
           <div style={styles.icon}>📝</div>
           <h3 style={styles.cardTitle}>สมัครสมาชิก</h3>
@@ -163,7 +175,7 @@ const Home = () => {
           </button>
         </div>
 
-        {/* 4. เจ้าหน้าที่ / สมาชิก */}
+        {/* 4. เข้าสู่ระบบ */}
         <div style={styles.card}>
           <div style={styles.icon}>👤</div>
           <h3 style={styles.cardTitle}>เข้าสู่ระบบ</h3>
@@ -181,33 +193,33 @@ const Home = () => {
       {isModalOpen && (
         <div style={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ color: '#ff4d4d', textAlign: 'center', marginBottom: '25px' }}>สมัครสมาชิก</h2>
+            <h2 style={{ color: '#ff4d4d', textAlign: 'center', marginBottom: '25px' }}>สมัครสมาชิกใหม่</h2>
             <form onSubmit={handleRegister}>
-              <label style={{ fontSize: '13px', color: '#888' }}>ชื่อ-นามสกุล</label>
+              <label style={styles.label}>ชื่อ-นามสกุล</label>
               <input 
                 required style={styles.input} type="text" placeholder="ระบุชื่อจริง-นามสกุล"
                 value={regData.full_name} onChange={(e) => setRegData({...regData, full_name: e.target.value})}
               />
 
-              <label style={{ fontSize: '13px', color: '#888' }}>เบอร์โทรศัพท์</label>
+              <label style={styles.label}>เบอร์โทรศัพท์</label>
               <input 
                 required style={styles.input} type="tel" placeholder="08x-xxx-xxxx"
                 value={regData.phone} onChange={(e) => setRegData({...regData, phone: e.target.value})}
               />
 
-              <label style={{ fontSize: '13px', color: '#888' }}>Line ID</label>
+              <label style={styles.label}>Line ID</label>
               <input 
                 style={styles.input} type="text" placeholder="ไอดีไลน์ของคุณ"
                 value={regData.line_id} onChange={(e) => setRegData({...regData, line_id: e.target.value})}
               />
 
-              <label style={{ fontSize: '13px', color: '#888' }}>อีเมล</label>
+              <label style={styles.label}>อีเมล</label>
               <input 
-                style={styles.input} type="email" placeholder="example@mail.com"
+                required style={styles.input} type="email" placeholder="example@mail.com"
                 value={regData.email} onChange={(e) => setRegData({...regData, email: e.target.value})}
               />
 
-              <label style={{ fontSize: '13px', color: '#888' }}>ที่อยู่</label>
+              <label style={styles.label}>ที่อยู่</label>
               <textarea 
                 style={{ ...styles.input, height: '80px', fontFamily: 'inherit' }} placeholder="บ้านเลขที่, ถนน, ตำบล..."
                 value={regData.address} onChange={(e) => setRegData({...regData, address: e.target.value})}
