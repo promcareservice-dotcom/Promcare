@@ -13,9 +13,9 @@ const AdminDashboard = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  // State สำหรับฟอร์มและแก้ไข
+  // State สำหรับฟอร์มและแก้ไข (เพิ่ม password)
   const [newMember, setNewMember] = useState({
-    full_name: '', username: '', phone: '', line_id: '', address: '', role: 'customer'
+    full_name: '', username: '', password: '', phone: '', line_id: '', address: '', role: 'customer'
   });
   const [editTasks, setEditTasks] = useState({});
 
@@ -25,7 +25,6 @@ const AdminDashboard = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    // ดึงงานซ่อมพร้อมข้อมูล Profile ผู้แจ้ง
     const { data: taskData } = await supabase.from('repair_tasks').select(`
       *,
       profiles:member_id (full_name, phone, role, address)
@@ -52,10 +51,17 @@ const AdminDashboard = () => {
 
   // --- ฟังก์ชันจัดการสมาชิก ---
   const handleAddMember = async () => {
-    if (!newMember.full_name || !newMember.username) return alert('กรุณากรอกชื่อและ Username');
+    if (!newMember.full_name || !newMember.username || !newMember.password) {
+      return alert('กรุณากรอกชื่อ, Username และ Password ให้ครบถ้วน');
+    }
     const { error } = await supabase.from('profiles').insert([newMember]);
-    if (error) alert(error.message);
-    else { alert('เพิ่มสมาชิกสำเร็จ'); setNewMember({ full_name: '', username: '', phone: '', line_id: '', address: '', role: 'customer' }); fetchData(); }
+    if (error) {
+      alert('เกิดข้อผิดพลาด: ' + error.message);
+    } else {
+      alert('เพิ่มสมาชิกและรหัสผ่านสำเร็จ');
+      setNewMember({ full_name: '', username: '', password: '', phone: '', line_id: '', address: '', role: 'customer' });
+      fetchData();
+    }
   };
 
   const handleUpdateMember = async () => {
@@ -78,12 +84,10 @@ const AdminDashboard = () => {
 
   const saveTaskUpdate = async (taskId) => {
     const updates = editTasks[taskId] || {};
-    // ถ้าไม่มีการเปลี่ยนแปลง ให้ปิด Modal ได้เลย
     if (Object.keys(updates).length === 0) {
       setIsTaskModalOpen(false);
       return;
     }
-
     const { error } = await supabase.from('repair_tasks').update(updates).eq('id', taskId);
     if (error) alert('บันทึกไม่สำเร็จ: ' + error.message);
     else {
@@ -122,7 +126,7 @@ const AdminDashboard = () => {
 
   return (
     <div style={styles.body}>
-      {/* 1. สรุปภาพรวม (Stats) */}
+      {/* 1. Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
         <div style={styles.card}>รอซ่อม<div style={{ color: '#ffcc00', fontSize: '24px' }}>{stats.pending}</div></div>
         <div style={styles.card}>กำลังซ่อม<div style={{ color: '#00ccff', fontSize: '24px' }}>{stats.doing}</div></div>
@@ -133,7 +137,7 @@ const AdminDashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* 2. รายชื่อสมาชิก */}
         <div style={styles.section}>
-          <h3 style={styles.title}>👥 รายชื่อสมาชิกในระบบ</h3>
+          <h3 style={styles.title}>👥 รายชื่อสมาชิก</h3>
           <table style={styles.table}>
             <thead><tr><th style={styles.th}>ชื่อ</th><th style={styles.th}>บทบาท</th><th style={styles.th}>จัดการ</th></tr></thead>
             <tbody>
@@ -151,12 +155,13 @@ const AdminDashboard = () => {
           </table>
         </div>
 
-        {/* 3. เพิ่มสมาชิกใหม่ */}
+        {/* 3. เพิ่มสมาชิกใหม่ (เพิ่ม Password) */}
         <div style={styles.section}>
           <h3 style={styles.title}>➕ เพิ่มสมาชิกใหม่</h3>
+          <input style={styles.input} placeholder="ชื่อ-นามสกุล" value={newMember.full_name} onChange={e => setNewMember({...newMember, full_name: e.target.value})} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <input style={styles.input} placeholder="ชื่อ-นามสกุล" value={newMember.full_name} onChange={e => setNewMember({...newMember, full_name: e.target.value})} />
             <input style={styles.input} placeholder="Username" value={newMember.username} onChange={e => setNewMember({...newMember, username: e.target.value})} />
+            <input style={styles.input} type="password" placeholder="Password" value={newMember.password} onChange={e => setNewMember({...newMember, password: e.target.value})} />
           </div>
           <input style={styles.input} placeholder="เบอร์โทรศัพท์" value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
           <select style={styles.input} value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value})}>
@@ -218,12 +223,11 @@ const AdminDashboard = () => {
         </table>
       </div>
 
-      {/* Modal รายละเอียดงานซ่อม & ข้อมูลผู้แจ้ง */}
+      {/* Modal รายละเอียดงานซ่อม */}
       {isTaskModalOpen && selectedTask && (
         <div style={styles.modalOverlay} onClick={() => setIsTaskModalOpen(false)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
             <h3 style={{ color: '#00ccff', borderBottom: '1px solid #333', paddingBottom: '10px' }}>📋 รายละเอียดการแจ้งซ่อม</h3>
-            
             <div style={{ marginBottom: '15px' }}>
               <p style={{ color: '#ff4d4d', fontSize: '12px', fontWeight: 'bold', margin: '10px 0' }}>👤 ข้อมูลผู้แจ้ง</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '14px' }}>
@@ -232,21 +236,18 @@ const AdminDashboard = () => {
                 <div>เบอร์โทร: {selectedTask.profiles?.phone || '-'}</div>
               </div>
             </div>
-
             <div style={{ marginBottom: '15px', borderTop: '1px solid #333', paddingTop: '10px' }}>
               <p style={{ color: '#ff4d4d', fontSize: '12px', fontWeight: 'bold', margin: '10px 0' }}>🔧 ข้อมูลอุปกรณ์</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '14px' }}>
                 <div>อุปกรณ์: {selectedTask.device_type}</div>
                 <div>ยี่ห้อ: {selectedTask.brand || '-'}</div>
                 <div>ทะเบียน: {selectedTask.registration_number || '-'}</div>
-                <div>สี: {selectedTask.color || '-'}</div>
               </div>
               <div style={{ marginTop: '10px' }}>
                 <span style={{ color: '#888', fontSize: '12px' }}>อาการแจ้งซ่อม:</span>
                 <div style={{ backgroundColor: '#222', padding: '10px', borderRadius: '5px', marginTop: '5px', fontSize: '14px' }}>{selectedTask.description}</div>
               </div>
             </div>
-
             <div style={{ borderTop: '1px solid #333', paddingTop: '10px' }}>
               <p style={{ color: '#ff4d4d', fontSize: '12px', fontWeight: 'bold', margin: '10px 0' }}>✍️ บันทึกเพิ่มเติม</p>
               <textarea 
@@ -256,7 +257,6 @@ const AdminDashboard = () => {
                 onChange={e => handleTaskChange(selectedTask.id, 'technician_comment', e.target.value)}
               />
             </div>
-
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button style={{ ...styles.btnRed, flex: 2 }} onClick={() => saveTaskUpdate(selectedTask.id)}>บันทึกข้อมูล & ปิด</button>
               <button style={{ backgroundColor: 'transparent', color: '#ff4d4d', border: '1px solid #ff4d4d', borderRadius: '8px', flex: 1, cursor: 'pointer' }} onClick={() => deleteTask(selectedTask.id)}>ลบรายการ</button>
@@ -272,10 +272,10 @@ const AdminDashboard = () => {
             <h3 style={{ color: '#ff4d4d' }}>📝 แก้ไขข้อมูลสมาชิก</h3>
             <label style={{fontSize:'12px', color:'#888'}}>ชื่อ-นามสกุล</label>
             <input style={styles.input} value={selectedMember.full_name} onChange={e => setSelectedMember({...selectedMember, full_name: e.target.value})} />
-            <label style={{fontSize:'12px', color:'#888'}}>เบอร์โทรศัพท์</label>
-            <input style={styles.input} value={selectedMember.phone} onChange={e => setSelectedMember({...selectedMember, phone: e.target.value})} />
-            <label style={{fontSize:'12px', color:'#888'}}>ที่อยู่</label>
-            <textarea style={{...styles.input, height:'60px'}} value={selectedMember.address} onChange={e => setSelectedMember({...selectedMember, address: e.target.value})} />
+            <label style={{fontSize:'12px', color:'#888'}}>Username</label>
+            <input style={styles.input} value={selectedMember.username} onChange={e => setSelectedMember({...selectedMember, username: e.target.value})} />
+            <label style={{fontSize:'12px', color:'#888'}}>Password</label>
+            <input style={styles.input} type="text" value={selectedMember.password} onChange={e => setSelectedMember({...selectedMember, password: e.target.value})} />
             <label style={{fontSize:'12px', color:'#888'}}>บทบาท</label>
             <select style={styles.input} value={selectedMember.role} onChange={e => setSelectedMember({...selectedMember, role: e.target.value})}>
               <option value="customer">ลูกค้า</option><option value="technician">ช่าง</option><option value="admin">แอดมิน</option>
