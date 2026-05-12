@@ -36,7 +36,7 @@ const Home = () => {
       alignItems: 'center',
       transition: 'transform 0.3s'
     },
-    icon: { fontSize: '50px', marginBottom: '20px', color: '#fff' },
+    icon: { fontSize: '50px', marginBottom: '20px' },
     cardTitle: { fontSize: '22px', marginBottom: '15px' },
     cardDetail: { fontSize: '14px', color: '#666', marginBottom: '30px', lineHeight: '1.5' },
     button: {
@@ -52,49 +52,47 @@ const Home = () => {
 
   return (
     <div style={styles.container}>
-      {/* ส่วนหัวข้อ (อ้างอิงจาก image_fc5c45.png) */}
       <div style={styles.header}>
         <h1 style={styles.brandName}>PROMCARE</h1>
         <p style={styles.subTitle}>Professional Service & Repair Management</p>
       </div>
 
-      {/* ส่วนการ์ดเมนูหลัก */}
       <div style={styles.cardContainer}>
         
-        {/* 1. แจ้งซ่อม (สำหรับ Guest หรือ Link ไปหน้าซ่อม) */}
+        {/* 1. แจ้งซ่อมอุปกรณ์ (สำหรับลูกค้าทั่วไป - ไม่ต้องล็อกอิน) */}
         <div style={styles.card}>
           <div style={styles.icon}>🔧</div>
           <h3 style={styles.cardTitle}>แจ้งซ่อมอุปกรณ์</h3>
           <p style={styles.cardDetail}>ส่งข้อมูลแจ้งซ่อมได้ทันที ไม่ต้องเป็นสมาชิก</p>
           <button 
             style={{ ...styles.button, backgroundColor: '#ff4d4d', color: '#fff' }}
-            onClick={() => navigate('/repair')} // ลิงก์ไปหน้าแจ้งซ่อม
+            onClick={() => navigate('/repair-guest')} // ลิงก์ไปหน้าแจ้งซ่อมทั่วไป
           >
             คลิกแจ้งซ่อม
           </button>
         </div>
 
-        {/* 2. ติดตามสถานะ */}
+        {/* 2. ติดตามสถานะ (ฟีเจอร์เพิ่มเติม) */}
         <div style={styles.card}>
           <div style={styles.icon}>🔍</div>
           <h3 style={styles.cardTitle}>ติดตามสถานะ</h3>
           <p style={styles.cardDetail}>เช็คสถานะงานซ่อมของคุณด้วยเบอร์โทรศัพท์</p>
           <button 
             style={{ ...styles.button, backgroundColor: '#333', color: '#fff' }}
-            onClick={() => alert('ฟีเจอร์ติดตามสถานะกำลังพัฒนา...')}
+            onClick={() => alert('ฟีเจอร์ติดตามสถานะกำลังจะเปิดให้บริการเร็วๆ นี้')}
           >
             ตรวจสอบงาน
           </button>
         </div>
 
-        {/* 3. ส่วนของเจ้าหน้าที่/สมาชิก (Login) */}
+        {/* 3. เจ้าหน้าที่ / สมาชิก (หน้า Login) */}
         <div style={styles.card}>
           <div style={styles.icon}>👤</div>
           <h3 style={styles.cardTitle}>เจ้าหน้าที่ / สมาชิก</h3>
           <p style={styles.cardDetail}>เข้าสู่ระบบเพื่อจัดการงานซ่อมและข้อมูลสมาชิก</p>
           <button 
             style={{ ...styles.button, backgroundColor: 'transparent', border: '1px solid #444', color: '#fff' }}
-            onClick={() => navigate('/')} // ลิงก์กลับไปหน้า Login หลัก
+            onClick={() => navigate('/login')} // ลิงก์ไปหน้า Login
           >
             เข้าสู่ระบบ
           </button>
