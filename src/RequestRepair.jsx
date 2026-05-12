@@ -1,45 +1,114 @@
-import React, { useState } from 'react';
-import { supabase } from './supabaseClient.js'; 
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient'; // ตรวจสอบ Path ให้ถูกต้อง
 
-const RequestRepair = () => {
-  const navigate = useNavigate();
+const RepairRequest = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    contact_number: '',
+    registration_number: '',
+    description: '',
+  });
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ customer_name: '', contact_number: '', description: '' });
+  const [user, setUser] = useState(null);
+
+  // 1. ตรวจสอบสถานะว่าผู้ใช้ล็อกอินอยู่หรือไม่ (ว่าเป็น Member หรือไม่)
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+    };
+    getSession();
+  }, []);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      const { error } = await supabase.from('repair_tasks').insert([formData]);
+      // 2. เตรียมโครงสร้างข้อมูลพื้นฐาน (Common Fields)
+      const repairPayload = {
+        description: formData.description,
+        registration_number: formData.registration_number, // ตาม image_0a6cda.png
+        status: 'pending', // สถานะเริ่มต้น ตาม image_0a7002.png
+        created_at: new Date().toISOString(),
+      };
+
+      // 3. แยกเงื่อนไขการส่งข้อมูลระหว่าง Member และ Guest
+      if (user) {
+        // กรณีเป็นสมาชิก (Member)
+        repairPayload.phone = formData.contact_number; // ส่งเข้าคอลัมน์ phone
+        repairPayload.member_id = user.id;            // เก็บ ID สมาชิก ตาม image_0a703f.png
+        repairPayload.member_name = formData.name;      // (ถ้ามีคอลัมน์นี้)
+      } else {
+        // กรณีเป็นบุคคลทั่วไป (Guest)
+        repairPayload.guest_tel = formData.contact_number; // ส่งเข้าคอลัมน์ guest_tel
+        repairPayload.guest_name = formData.name;          // ส่งเข้าคอลัมน์ guest_name ตาม image_0a6c79.png
+      }
+
+      // 4. ส่งข้อมูลไปยัง Supabase
+      const { error } = await supabase
+        .from('repair_tasks')
+        .insert([repairPayload]);
+
       if (error) throw error;
-      alert('✅ ส่งข้อมูลแจ้งซ่อมสำเร็จ!');
-      navigate('/');
-    } catch (err) {
-      alert('❌ เกิดข้อผิดพลาด: ' + err.message);
+
+      alert('ส่งข้อมูลแจ้งซ่อมสำเร็จ!');
+      // ล้างฟอร์มหลังส่งสำเร็จ
+      setFormData({ name: '', contact_number: '', registration_number: '', description: '' });
+
+    } catch (error) {
+      console.error('Error:', error.message);
+      alert('เกิดข้อผิดพลาด: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ background: '#111', padding: '30px', borderRadius: '15px', border: '1px solid #333', width: '100%', maxWidth: '400px', color: '#fff' }}>
-        <h2 style={{ textAlign: 'center', color: '#ff4d4d', marginBottom: '25px' }}>แจ้งซ่อมอุปกรณ์</h2>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <input placeholder="ชื่อผู้แจ้ง" required style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px' }}
-            onChange={(e) => setFormData({...formData, customer_name: e.target.value})} />
-          <input placeholder="เบอร์โทรศัพท์" required style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px' }}
-            onChange={(e) => setFormData({...formData, contact_number: e.target.value})} />
-          <textarea placeholder="อาการเสีย" required style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px', minHeight: '100px' }}
-            onChange={(e) => setFormData({...formData, description: e.target.value})} />
-          <button type="submit" disabled={loading} style={{ padding: '15px', background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
-            {loading ? 'กำลังบันทึก...' : 'ยืนยันการแจ้งซ่อม'}
-          </button>
-        </form>
-      </div>
+    <div className="repair-form-container">
+      <h2>แจ้งซ่อมอุปกรณ์</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          name="name"
+          placeholder="ชื่อผู้แจ้ง"
+          value={formData.name}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="text"
+          name="contact_number"
+          placeholder="เบอร์โทรศัพท์"
+          value={formData.contact_number}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="text"
+          name="registration_number"
+          placeholder="เลขทะเบียน / หมายเลขเครื่อง"
+          value={formData.registration_number}
+          onChange={handleChange}
+          required
+        />
+        <textarea
+          name="description"
+          placeholder="รายละเอียดอาการเสีย"
+          value={formData.description}
+          onChange={handleChange}
+          required
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? 'กำลังบันทึก...' : 'ยืนยันการแจ้งซ่อม'}
+        </button>
+      </form>
     </div>
   );
 };
 
-export default RequestRepair;
+export default RepairRequest;
