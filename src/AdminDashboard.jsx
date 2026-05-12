@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('tasks'); // 'tasks' หรือ 'members'
+  const [activeTab, setActiveTab] = useState('tasks');
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -13,6 +13,7 @@ const AdminDashboard = () => {
   // Modal States
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -32,7 +33,6 @@ const AdminDashboard = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    // ดึงข้อมูลงานซ่อมพร้อมข้อมูลโปรไฟล์สมาชิกที่เชื่อมโยงกัน
     const { data: taskData } = await supabase.from('repair_tasks').select(`
       *,
       profiles:member_id (full_name, phone, role, address, line_id)
@@ -65,21 +65,19 @@ const AdminDashboard = () => {
     }) + ' น.';
   };
 
-  // ฟังก์ชันอัปเดตงานซ่อม (รวมการเสนอราคาและความเห็นช่าง)
   const handleUpdateTask = async (taskId) => {
     const updates = editData[taskId] || {};
     const { error } = await supabase.from('repair_tasks').update(updates).eq('id', taskId);
     if (error) {
       alert('Error: ' + error.message);
     } else {
-      alert('บันทึกข้อมูลและส่งข้อเสนอราคาให้ลูกค้าเรียบร้อยแล้ว');
+      alert('บันทึกข้อมูลเรียบร้อยแล้ว');
       fetchData();
       setIsTaskModalOpen(false);
-      setEditData({}); // ล้างข้อมูลการแก้ไขหลังบันทึก
+      setEditData({});
     }
   };
 
-  // ฟังก์ชันจัดการสมาชิก
   const handleAddMember = async () => {
     const { error } = await supabase.from('profiles').insert([newMember]);
     if (error) alert('Error: ' + error.message);
@@ -100,7 +98,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // UI Helpers
   const getRoleBadge = (role) => {
     const colors = { admin: '#ff4d4d', technician: '#4d94ff', customer: '#28a745', guest: '#777' };
     return (
@@ -110,14 +107,10 @@ const AdminDashboard = () => {
     );
   };
 
-  const getConfirmationBadge = (status) => {
-    const config = {
-      pending: { label: '⏳ รอการยืนยันจากลูกค้า', color: '#ffcc00' },
-      confirmed: { label: '✅ ลูกค้ายืนยันการซ่อมแล้ว', color: '#28a745' },
-      rejected: { label: '❌ ลูกค้าปฏิเสธการซ่อม', color: '#ff4d4d' }
-    };
-    const current = config[status] || config.pending;
-    return <span style={{ color: current.color, fontWeight: 'bold', fontSize: '14px' }}>{current.label}</span>;
+  const getPaymentStatusColor = (status) => {
+    if (status === 'ชำระแล้ว(เงินสด)') return '#28a745';
+    if (status === 'ชำระแล้ว(โอนผ่านบัญชีธนาคาร)') return '#007bff';
+    return '#ff4d4d'; // ยังไม่ได้ชำระ
   };
 
   const styles = {
@@ -129,13 +122,15 @@ const AdminDashboard = () => {
     th: { backgroundColor: '#111', padding: '12px', textAlign: 'left', color: '#555', fontSize: '12px' },
     td: { padding: '12px', borderBottom: '1px solid #111' },
     input: { backgroundColor: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '10px', borderRadius: '8px', width: '100%', marginBottom: '10px', boxSizing: 'border-box' },
-    modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-    modalBody: { backgroundColor: '#111', width: '90%', maxWidth: '500px', padding: '25px', borderRadius: '20px', border: '1px solid #222' }
+    modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+    modalBody: { backgroundColor: '#111', width: '90%', maxWidth: '550px', padding: '30px', borderRadius: '25px', border: '1px solid #222', maxHeight: '90vh', overflowY: 'auto' },
+    detailLabel: { color: '#888', fontSize: '13px', marginBottom: '4px' },
+    detailValue: { fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', color: '#fff' }
   };
 
   return (
     <div style={styles.container}>
-      {/* 1. สถิติสรุปภาพรวม */}
+      {/* 1. สถิติสรุป */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
         <div style={styles.statCard}><small>รอซ่อม</small><h2 style={{color:'#ffcc00'}}>{stats.pending}</h2></div>
         <div style={styles.statCard}><small>กำลังซ่อม</small><h2 style={{color:'#00ccff'}}>{stats.doing}</h2></div>
@@ -143,16 +138,13 @@ const AdminDashboard = () => {
         <div style={styles.statCard}><small>สมาชิกทั้งหมด</small><h2>{stats.allMembers}</h2></div>
       </div>
 
-      {/* 2. เมนูเลือกหน้าจอ */}
       <div style={styles.navTab}>
         <button style={styles.tabBtn(activeTab === 'tasks')} onClick={() => setActiveTab('tasks')}>📋 รายการแจ้งซ่อม</button>
         <button style={styles.tabBtn(activeTab === 'members')} onClick={() => setActiveTab('members')}>👥 จัดการสมาชิก</button>
       </div>
 
-      {/* 3. ส่วนเนื้อหาหลัก */}
       {activeTab === 'tasks' ? (
         <section>
-          {/* ตัวกรองสถานะ */}
           <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}>
             {['all', 'pending', 'in_progress', 'completed'].map(s => (
               <button key={s} onClick={() => setFilterStatus(s)} style={{padding:'5px 15px', borderRadius:'15px', border: filterStatus===s?'1px solid #ff4d4d':'1px solid #333', backgroundColor: filterStatus===s?'#ff4d4d11':'transparent', color: filterStatus===s?'#ff4d4d':'#888', cursor:'pointer'}}>
@@ -163,32 +155,54 @@ const AdminDashboard = () => {
 
           <table style={styles.table}>
             <thead>
-              <tr><th style={styles.th}>เวลา</th><th style={styles.th}>ผู้แจ้ง</th><th style={styles.th}>อุปกรณ์</th><th style={styles.th}>สถานะ</th><th style={styles.th}>ราคา</th><th style={styles.th}>บันทึก</th></tr>
+              <tr>
+                <th style={styles.th}>เวลา</th>
+                <th style={styles.th}>ผู้แจ้ง</th>
+                <th style={styles.th}>อุปกรณ์ / อาการ</th>
+                <th style={styles.th}>สถานะ / การชำระเงิน</th>
+                <th style={styles.th}>ราคา</th>
+                <th style={styles.th}>บันทึก</th>
+              </tr>
             </thead>
             <tbody>
               {filteredTasks.map(t => (
                 <tr key={t.id}>
-                  <td style={{...styles.td, color:'#666', fontSize:'12px'}}>{formatThaiDate(t.created_at)}</td>
+                  <td style={{...styles.td, color:'#666', fontSize:'11px'}}>{formatThaiDate(t.created_at)}</td>
                   <td style={styles.td}>
-                    {/* คลิกที่ชื่อเพื่อเปิด Modal จัดการและเสนอราคา */}
-                    <strong style={{color:'#00ccff', cursor:'pointer', textDecoration:'underline'}} onClick={()=>{setSelectedTask(t); setIsTaskModalOpen(true)}}>
-                      {t.customer_name || t.profiles?.full_name || t.guest_name}
-                    </strong> 
+                    <strong style={{color:'#fff'}}>{t.customer_name || t.profiles?.full_name || t.guest_name}</strong> 
                     {getRoleBadge(t.profiles?.role || 'guest')}
                   </td>
-                  <td style={styles.td}>{t.device_type} {t.brand}</td>
                   <td style={styles.td}>
-                    <select style={styles.input} value={editData[t.id]?.status || t.status} onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), status: e.target.value}})}>
+                    <div 
+                      style={{color:'#00ccff', cursor:'pointer', fontWeight:'bold', textDecoration:'underline'}} 
+                      onClick={() => { setSelectedTask(t); setIsDetailModalOpen(true); }}
+                    >
+                      {t.device_type}
+                    </div>
+                    <div style={{fontSize:'12px', color:'#888', marginTop:'4px'}}>🚨 อาการ: {t.details || '-'}</div>
+                  </td>
+                  <td style={styles.td}>
+                    <select style={{...styles.input, marginBottom:'5px'}} value={editData[t.id]?.status || t.status} onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), status: e.target.value}})}>
                       <option value="pending">รอรับงาน</option>
                       <option value="in_progress">กำลังซ่อม</option>
                       <option value="completed">เสร็จสิ้น</option>
                     </select>
+                    <select 
+                      style={{...styles.input, fontSize:'11px', color: getPaymentStatusColor(editData[t.id]?.payment_status || t.payment_status)}} 
+                      value={editData[t.id]?.payment_status || t.payment_status || 'ยังไม่ได้ชำระ'} 
+                      onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), payment_status: e.target.value}})}
+                    >
+                      <option value="ยังไม่ได้ชำระ">❌ ยังไม่ได้ชำระ</option>
+                      <option value="ชำระแล้ว(เงินสด)">💵 ชำระแล้ว(เงินสด)</option>
+                      <option value="ชำระแล้ว(โอนผ่านบัญชีธนาคาร)">📱 ชำระแล้ว(โอน)</option>
+                    </select>
                   </td>
                   <td style={styles.td}>
-                    <input type="number" style={{...styles.input, width:'80px'}} defaultValue={t.price} placeholder="ราคา" onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), price: e.target.value}})} />
+                    <input type="number" style={{...styles.input, width:'90px'}} defaultValue={t.price} placeholder="ราคา" onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), price: e.target.value}})} />
                   </td>
                   <td style={styles.td}>
-                    <button style={{backgroundColor:'#ff4d4d', color:'#fff', border:'none', padding:'8px 15px', borderRadius:'6px', cursor:'pointer', fontWeight:'bold'}} onClick={()=>handleUpdateTask(t.id)}>SAVE</button>
+                    <button style={{backgroundColor:'#ff4d4d', color:'#fff', border:'none', padding:'8px 15px', borderRadius:'8px', cursor:'pointer', fontWeight:'bold'}} onClick={()=>handleUpdateTask(t.id)}>SAVE</button>
+                    <button style={{display:'block', width:'100%', marginTop:'5px', fontSize:'10px', background:'none', border:'none', color:'#888', cursor:'pointer'}} onClick={()=>{setSelectedTask(t); setIsTaskModalOpen(true)}}>เสนอราคา/ความเห็น</button>
                   </td>
                 </tr>
               ))}
@@ -223,48 +237,89 @@ const AdminDashboard = () => {
 
       {/* --- Modals Zone --- */}
 
-      {/* Modal จัดการงานซ่อม เสนอราคา และดูการยืนยันจากลูกค้า */}
-      {isTaskModalOpen && selectedTask && (
-        <div style={styles.modal} onClick={() => setIsTaskModalOpen(false)}>
+      {/* 1. Modal แสดงรายละเอียดอุปกรณ์ (คลิกจากตาราง) */}
+      {isDetailModalOpen && selectedTask && (
+        <div style={styles.modal} onClick={() => setIsDetailModalOpen(false)}>
           <div style={styles.modalBody} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#00ccff', marginTop:0 }}>🔧 จัดการงานซ่อมและเสนอราคา</h3>
+            <h2 style={{ color: '#ff4d4d', marginTop: 0, borderBottom: '1px solid #222', paddingBottom: '15px' }}>📦 รายละเอียดการแจ้งซ่อม</h2>
             
-            {/* สถานะการยืนยันจากฝั่งลูกค้า */}
-            <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#000', borderRadius: '10px', border: '1px solid #333', textAlign: 'center' }}>
-              {getConfirmationBadge(selectedTask.customer_confirmation)}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+              <div>
+                <div style={styles.detailLabel}>ชื่อผู้แจ้ง</div>
+                <div style={styles.detailValue}>{selectedTask.customer_name || selectedTask.profiles?.full_name || selectedTask.guest_name}</div>
+              </div>
+              <div>
+                <div style={styles.detailLabel}>เบอร์โทรศัพท์</div>
+                <div style={styles.detailValue}>{selectedTask.profiles?.phone || selectedTask.phone || '-'}</div>
+              </div>
+              <div>
+                <div style={styles.detailLabel}>ประเภทอุปกรณ์</div>
+                <div style={{...styles.detailValue, color: '#00ccff'}}>{selectedTask.device_type}</div>
+              </div>
+              <div>
+                <div style={styles.detailLabel}>ยี่ห้อ / แบรนด์</div>
+                <div style={styles.detailValue}>{selectedTask.brand || '-'}</div>
+              </div>
+              <div>
+                <div style={styles.detailLabel}>รุ่น (Model)</div>
+                <div style={styles.detailValue}>{selectedTask.model || '-'}</div>
+              </div>
+              <div>
+                <div style={styles.detailLabel}>ทะเบียน / ซีเรียล</div>
+                <div style={styles.detailValue}>{selectedTask.plate_number || '-'}</div>
+              </div>
+              <div>
+                <div style={styles.detailLabel}>สี</div>
+                <div style={styles.detailValue}>{selectedTask.color || '-'}</div>
+              </div>
+              <div>
+                <div style={styles.detailLabel}>สถานะปัจจุบัน</div>
+                <div style={{...styles.detailValue, color: '#ffcc00'}}>{selectedTask.status}</div>
+              </div>
             </div>
 
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ fontSize: '12px', color: '#888', display:'block', marginBottom:'5px' }}>ความเห็นของช่าง (ส่งให้ลูกค้าดู)</label>
-              <textarea 
-                style={{...styles.input, height:'80px'}} 
-                placeholder="ระบุรายละเอียดอาการและแนวทางการซ่อม..."
-                defaultValue={selectedTask.technician_comment}
-                onChange={e => setEditData({...editData, [selectedTask.id]: {...(editData[selectedTask.id] || {}), technician_comment: e.target.value}})}
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', color: '#888', display:'block', marginBottom:'5px' }}>ราคาประเมิน (บาท)</label>
-              <input 
-                type="number" 
-                style={styles.input} 
-                defaultValue={selectedTask.price}
-                onChange={e => setEditData({...editData, [selectedTask.id]: {...(editData[selectedTask.id] || {}), price: e.target.value}})}
-              />
+            <div style={{ marginTop: '10px' }}>
+              <div style={styles.detailLabel}>อาการเสียที่แจ้ง</div>
+              <div style={{ ...styles.detailValue, backgroundColor: '#1a1a1a', padding: '15px', borderRadius: '10px', border: '1px solid #333' }}>
+                {selectedTask.details || 'ไม่มีรายละเอียด'}
+              </div>
             </div>
 
             <button 
-              style={{ width: '100%', padding: '15px', backgroundColor: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize:'16px' }}
-              onClick={() => handleUpdateTask(selectedTask.id)}
+              style={{ width: '100%', padding: '15px', backgroundColor: '#333', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }}
+              onClick={() => setIsDetailModalOpen(false)}
             >
-              บันทึกและเสนอราคา
+              ปิดหน้าต่าง
             </button>
           </div>
         </div>
       )}
 
-      {/* Modal เพิ่มสมาชิกใหม่ */}
+      {/* 2. Modal เสนอราคาและคอมเมนต์ช่าง */}
+      {isTaskModalOpen && selectedTask && (
+        <div style={styles.modal} onClick={() => setIsTaskModalOpen(false)}>
+          <div style={styles.modalBody} onClick={e => e.stopPropagation()}>
+            <h3 style={{ color: '#00ccff', marginTop: 0 }}>🔧 บันทึกความเห็นช่าง</h3>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={styles.detailLabel}>ความเห็นช่าง / รายละเอียดการซ่อม</label>
+              <textarea 
+                style={{...styles.input, height:'120px'}} 
+                placeholder="ระบุสิ่งที่ตรวจพบและวิธีแก้ไข..."
+                defaultValue={selectedTask.technician_comment}
+                onChange={e => setEditData({...editData, [selectedTask.id]: {...(editData[selectedTask.id] || {}), technician_comment: e.target.value}})}
+              />
+            </div>
+            <button 
+              style={{ width: '100%', padding: '15px', backgroundColor: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              onClick={() => handleUpdateTask(selectedTask.id)}
+            >
+              บันทึกข้อมูล
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal เพิ่มสมาชิกใหม่ / แก้ไขสมาชิก (คงเดิมตามมาตรฐาน) */}
       {isAddMemberOpen && (
         <div style={styles.modal} onClick={()=>setIsAddMemberOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
@@ -283,19 +338,14 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Modal แก้ไขข้อมูลสมาชิก */}
       {isMemberModalOpen && selectedMember && (
         <div style={styles.modal} onClick={()=>setIsMemberModalOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
             <h3 style={{color:'#00ccff', marginTop:0}}>แก้ไขข้อมูลสมาชิก</h3>
-            <label style={{fontSize:'12px', color:'#555'}}>ชื่อ-นามสกุล</label>
+            <label style={styles.detailLabel}>ชื่อ-นามสกุล</label>
             <input style={styles.input} value={selectedMember.full_name} onChange={e=>setSelectedMember({...selectedMember, full_name: e.target.value})} />
-            <label style={{fontSize:'12px', color:'#555'}}>เบอร์โทรศัพท์</label>
+            <label style={styles.detailLabel}>เบอร์โทรศัพท์</label>
             <input style={styles.input} value={selectedMember.phone} onChange={e=>setSelectedMember({...selectedMember, phone: e.target.value})} />
-            <label style={{fontSize:'12px', color:'#555'}}>Line ID</label>
-            <input style={styles.input} value={selectedMember.line_id} onChange={e=>setSelectedMember({...selectedMember, line_id: e.target.value})} />
-            <label style={{fontSize:'12px', color:'#555'}}>ที่อยู่</label>
-            <textarea style={{...styles.input, height:'60px'}} value={selectedMember.address} onChange={e=>setSelectedMember({...selectedMember, address: e.target.value})} />
             <button style={{width:'100%', padding:'12px', backgroundColor:'#00ccff', color:'#fff', border:'none', borderRadius:'10px', marginTop:'10px', fontWeight:'bold'}} onClick={handleUpdateMember}>อัปเดตข้อมูล</button>
           </div>
         </div>
