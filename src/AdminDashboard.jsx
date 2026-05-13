@@ -16,10 +16,12 @@ const AdminDashboard = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isMemberInfoModalOpen, setIsMemberInfoModalOpen] = useState(false);
   const [selectedMemberInfo, setSelectedMemberInfo] = useState(null);
+  const [isEditMemberMode, setIsEditMemberMode] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
 
   const [editData, setEditData] = useState({});
+  const [memberEditData, setMemberEditData] = useState({});
   const [newMember, setNewMember] = useState({
     full_name: '', phone: '', line_id: '', email: '', address: '', role: 'customer'
   });
@@ -29,10 +31,10 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchData();
-    // Realtime subscription เพื่อรับการแจ้งเตือนเมื่อลูกค้าอัปเดตข้อมูล
     const subscription = supabase
-      .channel('public:repair_tasks')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'repair_tasks' }, () => fetchData())
+      .channel('admin_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'repair_tasks' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchData())
       .subscribe();
 
     return () => supabase.removeChannel(subscription);
@@ -46,7 +48,7 @@ const AdminDashboard = () => {
     setLoading(true);
     const { data: taskData } = await supabase.from('repair_tasks').select(`
       *,
-      profiles:member_id (full_name, phone, role, address, line_id, email)
+      profiles:member_id (id, full_name, phone, role, address, line_id, email)
     `).order('created_at', { ascending: false });
     
     const { data: memberData } = await supabase.from('profiles').select('*');
@@ -97,16 +99,6 @@ const AdminDashboard = () => {
     );
   };
 
-  // ฟังก์ชันแสดงสถานะภาษาไทย
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case 'pending': return '⏳ รอรับงาน';
-      case 'in_progress': return '⚙️ กำลังซ่อม';
-      case 'completed': return '✅ เสร็จสิ้น';
-      default: return status;
-    }
-  };
-
   const handleUpdateTask = async (taskId, customUpdates = null) => {
     const updates = customUpdates || editData[taskId] || {};
     const { error } = await supabase.from('repair_tasks').update(updates).eq('id', taskId);
@@ -124,6 +116,20 @@ const AdminDashboard = () => {
           });
       }
       setIsDetailModalOpen(false);
+    }
+  };
+
+  const handleUpdateMember = async () => {
+    if (!selectedMemberInfo) return;
+    const { error } = await supabase.from('profiles').update(memberEditData).eq('id', selectedMemberInfo.id);
+    
+    if (error) {
+      alert('แก้ไขข้อมูลล้มเหลว: ' + error.message);
+    } else {
+      alert('อัปเดตข้อมูลสมาชิกเรียบร้อยแล้ว');
+      setIsEditMemberMode(false);
+      fetchData();
+      setIsMemberInfoModalOpen(false);
     }
   };
 
@@ -178,13 +184,11 @@ const AdminDashboard = () => {
     modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' },
     modalBody: { backgroundColor: '#0f0f0f', width: '95%', maxWidth: '550px', padding: '35px', borderRadius: '30px', border: '1px solid #222', maxHeight: '90vh', overflowY: 'auto' },
     primaryBtn: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' },
-    confirmBadge: { backgroundColor: '#ff9800', color: '#000', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', animation: 'blink 1.5s infinite', display: 'inline-block', marginBottom: '5px' }
+    statusBadge: (bg, color) => ({ backgroundColor: bg, color: color, padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', marginRight: '5px', display: 'inline-block' })
   };
 
   return (
     <div style={styles.container}>
-      <style>{`@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }`}</style>
-      
       {/* Stats Section */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '35px' }}>
         <div style={styles.statCard}><small style={{color:'#888'}}>รอซ่อม</small><h2 style={{color:'#ffcc00'}}>{stats.pending}</h2></div>
@@ -204,7 +208,7 @@ const AdminDashboard = () => {
             <div style={{display:'flex', gap:'10px'}}>
               {['all', 'pending', 'in_progress', 'completed'].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)} style={{padding:'8px 15px', borderRadius:'20px', border: filterStatus===s?'1px solid #ff4d4d':'1px solid #333', color: filterStatus===s?'#ff4d4d':'#888', cursor:'pointer', background:'none'}}>
-                  {s === 'all' ? 'ทั้งหมด' : getStatusLabel(s)}
+                  {s === 'all' ? 'ทั้งหมด' : s === 'pending' ? 'รอซ่อม' : s === 'in_progress' ? 'กำลังซ่อม' : 'เสร็จสิ้น'}
                 </button>
               ))}
             </div>
@@ -234,7 +238,12 @@ const AdminDashboard = () => {
                     <div style={{marginTop:'5px'}}>{getRoleBadge(t.profiles?.role)}</div>
                   </td>
                   <td style={styles.td}>
-                    {t.customer_confirm === 'confirmed' && <div style={styles.confirmBadge}>🔔 ลูกค้ายืนยันการซ่อมแล้ว</div>}
+                    {/* ส่วนแจ้งเตือนแอดมิน */}
+                    <div style={{marginBottom:'8px'}}>
+                        {t.customer_confirm === 'confirmed' && <span style={styles.statusBadge('rgba(40,167,69,0.2)', '#28a745')}>✓ ลูกค้ายืนยันซ่อม</span>}
+                        {t.customer_confirm === 'rejected' && <span style={styles.statusBadge('rgba(220,53,69,0.2)', '#dc3545')}>✗ ลูกค้าปฏิเสธ</span>}
+                        {t.customer_payment_notified && <span style={styles.statusBadge('rgba(0,123,255,0.2)', '#007bff')}>💰 ลูกค้าแจ้งโอนแล้ว</span>}
+                    </div>
                     <div style={{color:'#00ccff', cursor:'pointer', fontWeight:'bold', fontSize:'16px'}} onClick={() => { setSelectedTask(t); setIsDetailModalOpen(true); }}>
                       🔍 {t.device_type}
                     </div>
@@ -290,7 +299,7 @@ const AdminDashboard = () => {
                   <td style={styles.td}>{getRoleBadge(m.role)}</td>
                   <td style={styles.td}>{m.phone || '-'}<br/><small style={{color:'#00ccff'}}>Line: {m.line_id || '-'}</small></td>
                   <td style={styles.td}>
-                    <button style={{color:'#00ccff', background:'none', border:'none', cursor:'pointer', fontWeight:'bold'}} onClick={()=>{setSelectedMemberInfo(m); setIsMemberInfoModalOpen(true)}}>ดูข้อมูล</button>
+                    <button style={{color:'#00ccff', background:'none', border:'none', cursor:'pointer', fontWeight:'bold'}} onClick={()=>{setSelectedMemberInfo(m); setMemberEditData(m); setIsMemberInfoModalOpen(true)}}>ดูข้อมูล</button>
                   </td>
                 </tr>
               ))}
@@ -299,51 +308,74 @@ const AdminDashboard = () => {
         </section>
       )}
 
-      {/* Modal Device Detail (แสดงข้อมูลทั้งหมดที่ลูกค้ากรอก) */}
-      {isDetailModalOpen && selectedTask && (
-        <div style={styles.modal} onClick={()=>setIsDetailModalOpen(false)}>
+      {/* Modal Member Info & EDIT */}
+      {isMemberInfoModalOpen && selectedMemberInfo && (
+        <div style={styles.modal} onClick={()=>{setIsMemberInfoModalOpen(false); setIsEditMemberMode(false);}}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <h2 style={{color:'#00ccff', borderBottom:'1px solid #222', paddingBottom:'15px', textAlign:'center'}}>🛠 รายละเอียดการซ่อมแบบละเอียด</h2>
-            
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', marginTop:'20px'}}>
-                <div style={{gridColumn:'span 2'}}>
-                    <label style={styles.label}>อุปกรณ์</label>
-                    <p style={{fontSize:'18px', fontWeight:'bold', color:'#fff'}}>🔍 {selectedTask.device_type}</p>
-                </div>
-                <div><label style={styles.label}>ยี่ห้อ</label><p>{selectedTask.brand || '-'}</p></div>
-                <div><label style={styles.label}>รุ่น</label><p>{selectedTask.model || '-'}</p></div>
-                <div><label style={styles.label}>สีตัวเครื่อง</label><p>{selectedTask.color || '-'}</p></div>
-                <div><label style={styles.label}>เลขทะเบียน / Serial</label><p>{selectedTask.plate_number || '-'}</p></div>
-                <div style={{gridColumn:'span 2'}}>
-                    <label style={styles.label}>อาการเสียที่แจ้ง</label>
-                    <p style={{color:'#aaa', backgroundColor:'#1a1a1a', padding:'15px', borderRadius:'10px', border:'1px dashed #333'}}>{selectedTask.details || 'ไม่มีรายละเอียด'}</p>
-                </div>
-                <div style={{gridColumn:'span 2'}}>
-                    <label style={{...styles.label, color:'#00ccff', marginTop:'10px'}}>📝 บันทึกความเห็นจากช่าง</label>
-                    <textarea 
-                        style={{...styles.input, height:'100px', border:'1px solid #00ccff'}} 
-                        placeholder="ระบุรายละเอียดการซ่อม..."
-                        defaultValue={selectedTask.technician_comment}
-                        onChange={(e) => setSelectedTask({...selectedTask, technician_comment: e.target.value})}
-                    />
-                </div>
+            <div style={{textAlign:'center', marginBottom:'20px'}}>
+               {getRoleBadge(selectedMemberInfo.role)}
+               <h3 style={{marginTop:'15px', color:'#fff'}}>{isEditMemberMode ? '📝 แก้ไขข้อมูลสมาชิก' : selectedMemberInfo.full_name}</h3>
             </div>
+            
+            {isEditMemberMode ? (
+              <div>
+                <label style={styles.label}>ชื่อ-นามสกุล</label>
+                <input style={styles.input} value={memberEditData.full_name} onChange={e=>setMemberEditData({...memberEditData, full_name: e.target.value})} />
+                <label style={styles.label}>เบอร์โทรศัพท์</label>
+                <input style={styles.input} value={memberEditData.phone} onChange={e=>setMemberEditData({...memberEditData, phone: e.target.value})} />
+                <label style={styles.label}>Line ID</label>
+                <input style={styles.input} value={memberEditData.line_id} onChange={e=>setMemberEditData({...memberEditData, line_id: e.target.value})} />
+                <label style={styles.label}>ที่อยู่</label>
+                <textarea style={{...styles.input, height:'80px'}} value={memberEditData.address} onChange={e=>setMemberEditData({...memberEditData, address: e.target.value})} />
+              </div>
+            ) : (
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', borderTop:'1px solid #222', paddingTop:'20px'}}>
+                <div><small style={{color:'#666'}}>เบอร์โทร</small><p>{selectedMemberInfo.phone || '-'}</p></div>
+                <div><small style={{color:'#666'}}>Line ID</small><p>{selectedMemberInfo.line_id || '-'}</p></div>
+                <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>อีเมล</small><p>{selectedMemberInfo.email}</p></div>
+                <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>ที่อยู่</small><p>{selectedMemberInfo.address || '-'}</p></div>
+              </div>
+            )}
 
-            <div style={{display:'flex', gap:'15px', marginTop:'20px'}}>
-                <button style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} onClick={()=>setIsDetailModalOpen(false)}>ปิด</button>
-                <button 
-                    style={{...styles.primaryBtn, backgroundColor:'#00ccff', flex:2}} 
-                    onClick={() => handleUpdateTask(selectedTask.id, { technician_comment: selectedTask.technician_comment })}
-                >
-                    💾 บันทึกความเห็นช่าง
-                </button>
+            <div style={{display:'flex', gap:'10px', marginTop:'20px'}}>
+              <button style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} onClick={()=>{setIsMemberInfoModalOpen(false); setIsEditMemberMode(false);}}>ปิด</button>
+              {isEditMemberMode ? (
+                <button style={{...styles.primaryBtn, backgroundColor:'#28a745', flex:2}} onClick={handleUpdateMember}>💾 ยืนยันการอัปเดต</button>
+              ) : (
+                <button style={{...styles.primaryBtn, backgroundColor:'#00ccff', flex:2}} onClick={()=>setIsEditMemberMode(true)}>✏️ แก้ไขข้อมูล</button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Add Member & Member Info (ยังคงเดิมตามโครงสร้างของคุณ) */}
-      {/* ... โค้ดเดิมในส่วน Modal Add Member และ Member Info ... */}
+      {/* Modal Device Detail (เหมือนเดิม) */}
+      {isDetailModalOpen && selectedTask && (
+        <div style={styles.modal} onClick={()=>setIsDetailModalOpen(false)}>
+          <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
+            <h2 style={{color:'#00ccff', borderBottom:'1px solid #222', paddingBottom:'15px'}}>🛠 รายละเอียดการซ่อม</h2>
+            <div style={{marginTop:'20px'}}>
+                <label style={styles.label}>อุปกรณ์ / อาการเสีย</label>
+                <p style={{fontSize:'18px', fontWeight:'bold', color:'#fff', margin:'5px 0'}}>🔍 {selectedTask.device_type} ({selectedTask.brand} {selectedTask.model})</p>
+                <p style={{color:'#aaa', backgroundColor:'#1a1a1a', padding:'15px', borderRadius:'10px'}}>{selectedTask.details || 'ไม่มีรายละเอียดอาการเสีย'}</p>
+                
+                <label style={{...styles.label, color:'#00ccff', marginTop:'20px'}}>📝 บันทึกความเห็นจากช่าง</label>
+                <textarea 
+                    style={{...styles.input, height:'120px', border:'1px solid #00ccff', marginTop:'5px'}} 
+                    placeholder="ระบุความคืบหน้าการซ่อม หรือหมายเหตุเพิ่มเติม..."
+                    defaultValue={selectedTask.technician_comment}
+                    onChange={(e) => setSelectedTask({...selectedTask, technician_comment: e.target.value})}
+                />
+            </div>
+            <div style={{display:'flex', gap:'15px', marginTop:'20px'}}>
+                <button style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} onClick={()=>setIsDetailModalOpen(false)}>ปิด</button>
+                <button style={{...styles.primaryBtn, backgroundColor:'#00ccff', flex:2}} onClick={() => handleUpdateTask(selectedTask.id, { technician_comment: selectedTask.technician_comment })}>💾 บันทึกความเห็นช่าง</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Add Member (เหมือนเดิม) */}
       {isAddMemberOpen && (
         <div style={styles.modal} onClick={()=>setIsAddMemberOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
@@ -367,25 +399,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {isMemberInfoModalOpen && selectedMemberInfo && (
-        <div style={styles.modal} onClick={()=>setIsMemberInfoModalOpen(false)}>
-          <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <div style={{textAlign:'center', marginBottom:'20px'}}>
-               {getRoleBadge(selectedMemberInfo.role)}
-               <h3 style={{marginTop:'15px', color:'#fff'}}>{selectedMemberInfo.full_name}</h3>
-            </div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', borderTop:'1px solid #222', paddingTop:'20px'}}>
-              <div><small style={{color:'#666'}}>เบอร์โทร</small><p>{selectedMemberInfo.phone || '-'}</p></div>
-              <div><small style={{color:'#666'}}>Line ID</small><p>{selectedMemberInfo.line_id || '-'}</p></div>
-              <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>อีเมล</small><p>{selectedMemberInfo.email}</p></div>
-              <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>ที่อยู่</small><p>{selectedMemberInfo.address || '-'}</p></div>
-            </div>
-            <button style={{...styles.primaryBtn, width:'100%', marginTop:'20px'}} onClick={()=>setIsMemberInfoModalOpen(false)}>ปิดหน้าต่าง</button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal New Task */}
+      {/* Modal New Task (เหมือนเดิม) */}
       {isNewTaskModalOpen && (
         <div style={styles.modal} onClick={()=>setIsNewTaskModalOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
@@ -398,10 +412,6 @@ const AdminDashboard = () => {
             <div style={{display:'flex', gap:'10px'}}>
               <input style={styles.input} placeholder="ยี่ห้อ" onChange={e=>setNewTask({...newTask, brand: e.target.value})} />
               <input style={styles.input} placeholder="รุ่น" onChange={e=>setNewTask({...newTask, model: e.target.value})} />
-            </div>
-            <div style={{display:'flex', gap:'10px'}}>
-              <input style={styles.input} placeholder="สี" onChange={e=>setNewTask({...newTask, color: e.target.value})} />
-              <input style={styles.input} placeholder="ทะเบียน/Serial" onChange={e=>setNewTask({...newTask, plate_number: e.target.value})} />
             </div>
             <textarea style={{...styles.input, height:'80px'}} placeholder="อาการเสีย..." onChange={e=>setNewTask({...newTask, details: e.target.value})} />
             <button style={{...styles.primaryBtn, width:'100%', backgroundColor:'#00ccff'}} onClick={handleCreateNewTask}>ยืนยันเปิดใบงาน</button>
