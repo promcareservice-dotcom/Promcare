@@ -29,6 +29,13 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchData();
+    // Realtime subscription เพื่อรับการแจ้งเตือนเมื่อลูกค้าอัปเดตข้อมูล
+    const subscription = supabase
+      .channel('public:repair_tasks')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'repair_tasks' }, () => fetchData())
+      .subscribe();
+
+    return () => supabase.removeChannel(subscription);
   }, []);
 
   useEffect(() => {
@@ -88,6 +95,16 @@ const AdminDashboard = () => {
         {r.label}
       </span>
     );
+  };
+
+  // ฟังก์ชันแสดงสถานะภาษาไทย
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'pending': return '⏳ รอรับงาน';
+      case 'in_progress': return '⚙️ กำลังซ่อม';
+      case 'completed': return '✅ เสร็จสิ้น';
+      default: return status;
+    }
   };
 
   const handleUpdateTask = async (taskId, customUpdates = null) => {
@@ -160,11 +177,14 @@ const AdminDashboard = () => {
     input: { backgroundColor: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '12px', borderRadius: '10px', width: '100%', marginBottom: '15px', outline: 'none', fontSize: '14px' },
     modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' },
     modalBody: { backgroundColor: '#0f0f0f', width: '95%', maxWidth: '550px', padding: '35px', borderRadius: '30px', border: '1px solid #222', maxHeight: '90vh', overflowY: 'auto' },
-    primaryBtn: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }
+    primaryBtn: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' },
+    confirmBadge: { backgroundColor: '#ff9800', color: '#000', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', animation: 'blink 1.5s infinite', display: 'inline-block', marginBottom: '5px' }
   };
 
   return (
     <div style={styles.container}>
+      <style>{`@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }`}</style>
+      
       {/* Stats Section */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '35px' }}>
         <div style={styles.statCard}><small style={{color:'#888'}}>รอซ่อม</small><h2 style={{color:'#ffcc00'}}>{stats.pending}</h2></div>
@@ -184,7 +204,7 @@ const AdminDashboard = () => {
             <div style={{display:'flex', gap:'10px'}}>
               {['all', 'pending', 'in_progress', 'completed'].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)} style={{padding:'8px 15px', borderRadius:'20px', border: filterStatus===s?'1px solid #ff4d4d':'1px solid #333', color: filterStatus===s?'#ff4d4d':'#888', cursor:'pointer', background:'none'}}>
-                  {s === 'all' ? 'ทั้งหมด' : s === 'pending' ? 'รอซ่อม' : s === 'in_progress' ? 'กำลังซ่อม' : 'เสร็จสิ้น'}
+                  {s === 'all' ? 'ทั้งหมด' : getStatusLabel(s)}
                 </button>
               ))}
             </div>
@@ -214,6 +234,7 @@ const AdminDashboard = () => {
                     <div style={{marginTop:'5px'}}>{getRoleBadge(t.profiles?.role)}</div>
                   </td>
                   <td style={styles.td}>
+                    {t.customer_confirm === 'confirmed' && <div style={styles.confirmBadge}>🔔 ลูกค้ายืนยันการซ่อมแล้ว</div>}
                     <div style={{color:'#00ccff', cursor:'pointer', fontWeight:'bold', fontSize:'16px'}} onClick={() => { setSelectedTask(t); setIsDetailModalOpen(true); }}>
                       🔍 {t.device_type}
                     </div>
@@ -278,24 +299,36 @@ const AdminDashboard = () => {
         </section>
       )}
 
-      {/* Modal Device Detail & Technician Comment (บันทึกความเห็นช่าง) */}
+      {/* Modal Device Detail (แสดงข้อมูลทั้งหมดที่ลูกค้ากรอก) */}
       {isDetailModalOpen && selectedTask && (
         <div style={styles.modal} onClick={()=>setIsDetailModalOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <h2 style={{color:'#00ccff', borderBottom:'1px solid #222', paddingBottom:'15px'}}>🛠 รายละเอียดการซ่อม</h2>
-            <div style={{marginTop:'20px'}}>
-                <label style={styles.label}>อุปกรณ์ / อาการเสีย</label>
-                <p style={{fontSize:'18px', fontWeight:'bold', color:'#fff', margin:'5px 0'}}>🔍 {selectedTask.device_type} ({selectedTask.brand} {selectedTask.model})</p>
-                <p style={{color:'#aaa', backgroundColor:'#1a1a1a', padding:'15px', borderRadius:'10px'}}>{selectedTask.details || 'ไม่มีรายละเอียดอาการเสีย'}</p>
-                
-                <label style={{...styles.label, color:'#00ccff', marginTop:'20px'}}>📝 บันทึกความเห็นจากช่าง</label>
-                <textarea 
-                    style={{...styles.input, height:'120px', border:'1px solid #00ccff', marginTop:'5px'}} 
-                    placeholder="ระบุความคืบหน้าการซ่อม หรือหมายเหตุเพิ่มเติม..."
-                    defaultValue={selectedTask.technician_comment}
-                    onChange={(e) => setSelectedTask({...selectedTask, technician_comment: e.target.value})}
-                />
+            <h2 style={{color:'#00ccff', borderBottom:'1px solid #222', paddingBottom:'15px', textAlign:'center'}}>🛠 รายละเอียดการซ่อมแบบละเอียด</h2>
+            
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', marginTop:'20px'}}>
+                <div style={{gridColumn:'span 2'}}>
+                    <label style={styles.label}>อุปกรณ์</label>
+                    <p style={{fontSize:'18px', fontWeight:'bold', color:'#fff'}}>🔍 {selectedTask.device_type}</p>
+                </div>
+                <div><label style={styles.label}>ยี่ห้อ</label><p>{selectedTask.brand || '-'}</p></div>
+                <div><label style={styles.label}>รุ่น</label><p>{selectedTask.model || '-'}</p></div>
+                <div><label style={styles.label}>สีตัวเครื่อง</label><p>{selectedTask.color || '-'}</p></div>
+                <div><label style={styles.label}>เลขทะเบียน / Serial</label><p>{selectedTask.plate_number || '-'}</p></div>
+                <div style={{gridColumn:'span 2'}}>
+                    <label style={styles.label}>อาการเสียที่แจ้ง</label>
+                    <p style={{color:'#aaa', backgroundColor:'#1a1a1a', padding:'15px', borderRadius:'10px', border:'1px dashed #333'}}>{selectedTask.details || 'ไม่มีรายละเอียด'}</p>
+                </div>
+                <div style={{gridColumn:'span 2'}}>
+                    <label style={{...styles.label, color:'#00ccff', marginTop:'10px'}}>📝 บันทึกความเห็นจากช่าง</label>
+                    <textarea 
+                        style={{...styles.input, height:'100px', border:'1px solid #00ccff'}} 
+                        placeholder="ระบุรายละเอียดการซ่อม..."
+                        defaultValue={selectedTask.technician_comment}
+                        onChange={(e) => setSelectedTask({...selectedTask, technician_comment: e.target.value})}
+                    />
+                </div>
             </div>
+
             <div style={{display:'flex', gap:'15px', marginTop:'20px'}}>
                 <button style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} onClick={()=>setIsDetailModalOpen(false)}>ปิด</button>
                 <button 
@@ -309,7 +342,8 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Modal Add Member */}
+      {/* Modal Add Member & Member Info (ยังคงเดิมตามโครงสร้างของคุณ) */}
+      {/* ... โค้ดเดิมในส่วน Modal Add Member และ Member Info ... */}
       {isAddMemberOpen && (
         <div style={styles.modal} onClick={()=>setIsAddMemberOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
@@ -333,7 +367,6 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Modal Member Info */}
       {isMemberInfoModalOpen && selectedMemberInfo && (
         <div style={styles.modal} onClick={()=>setIsMemberInfoModalOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
@@ -365,6 +398,10 @@ const AdminDashboard = () => {
             <div style={{display:'flex', gap:'10px'}}>
               <input style={styles.input} placeholder="ยี่ห้อ" onChange={e=>setNewTask({...newTask, brand: e.target.value})} />
               <input style={styles.input} placeholder="รุ่น" onChange={e=>setNewTask({...newTask, model: e.target.value})} />
+            </div>
+            <div style={{display:'flex', gap:'10px'}}>
+              <input style={styles.input} placeholder="สี" onChange={e=>setNewTask({...newTask, color: e.target.value})} />
+              <input style={styles.input} placeholder="ทะเบียน/Serial" onChange={e=>setNewTask({...newTask, plate_number: e.target.value})} />
             </div>
             <textarea style={{...styles.input, height:'80px'}} placeholder="อาการเสีย..." onChange={e=>setNewTask({...newTask, details: e.target.value})} />
             <button style={{...styles.primaryBtn, width:'100%', backgroundColor:'#00ccff'}} onClick={handleCreateNewTask}>ยืนยันเปิดใบงาน</button>
