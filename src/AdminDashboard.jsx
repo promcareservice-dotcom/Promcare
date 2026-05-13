@@ -50,7 +50,7 @@ const AdminDashboard = () => {
       *,
       profiles:member_id (id, full_name, phone, role, address, line_id, email)
     `).order('created_at', { ascending: false });
-   
+    
     const { data: memberData } = await supabase.from('profiles').select('*');
 
     if (taskData) setTasks(taskData);
@@ -60,7 +60,7 @@ const AdminDashboard = () => {
         return (roleOrder[a.role] || 9) - (roleOrder[b.role] || 9);
       });
       setMembers(sortedMembers);
-     
+      
       setStats({
         pending: taskData?.filter(t => ['pending', 'รอรับงาน'].includes(t.status)).length || 0,
         doing: taskData?.filter(t => ['in_progress', 'กำลังซ่อม'].includes(t.status)).length || 0,
@@ -102,7 +102,7 @@ const AdminDashboard = () => {
   const handleUpdateTask = async (taskId, customUpdates = null) => {
     const updates = customUpdates || editData[taskId] || {};
     const { error } = await supabase.from('repair_tasks').update(updates).eq('id', taskId);
-   
+    
     if (error) {
         alert('ไม่สามารถบันทึกได้: ' + error.message);
     } else {
@@ -122,7 +122,7 @@ const AdminDashboard = () => {
   const handleUpdateMember = async () => {
     if (!selectedMemberInfo) return;
     const { error } = await supabase.from('profiles').update(memberEditData).eq('id', selectedMemberInfo.id);
-   
+    
     if (error) {
       alert('แก้ไขข้อมูลล้มเหลว: ' + error.message);
     } else {
@@ -238,17 +238,16 @@ const AdminDashboard = () => {
                     <div style={{marginTop:'5px'}}>{getRoleBadge(t.profiles?.role)}</div>
                   </td>
                   <td style={styles.td}>
-                    {/* ส่วนแสดงสถานะยืนยันจากฝั่งลูกค้า */}
+                    {/* แก้ไขส่วนแสดงสถานะยืนยันให้เปลี่ยนตามฐานข้อมูล */}
                     <div style={{marginBottom:'8px'}}>
                         {t.customer_confirm === 'confirmed' ? (
-                            <span style={styles.statusBadge('rgba(40,167,69,0.2)', '#28a745')}>✓ ลูกค้ายืนยันซ่อมแล้ว</span>
+                            <span style={styles.statusBadge('rgba(40,167,69,0.2)', '#28a745')}>✅ ลูกค้ายืนยันซ่อมแล้ว</span>
                         ) : t.customer_confirm === 'rejected' ? (
-                            <span style={styles.statusBadge('rgba(220,53,69,0.2)', '#dc3545')}>✗ ลูกค้าปฏิเสธการซ่อม</span>
+                            <span style={styles.statusBadge('rgba(220,53,69,0.2)', '#dc3545')}>❌ ลูกค้าปฏิเสธการซ่อม</span>
                         ) : (
                             <span style={styles.statusBadge('rgba(255,193,7,0.1)', '#ffc107')}>⏳ รอการยืนยันจากลูกค้า</span>
                         )}
                         
-                        {/* แจ้งเตือนเมื่อลูกค้าแจ้งโอนเงิน */}
                         {t.customer_payment_notified && (
                             <span style={styles.statusBadge('rgba(0,123,255,0.2)', '#007bff')}>💰 แจ้งโอนแล้ว</span>
                         )}
@@ -318,7 +317,6 @@ const AdminDashboard = () => {
         </section>
       )}
 
-      {/* ส่วน Modal อื่นๆ คงเดิมตามโครงสร้างของคุณ */}
       {/* Modal Member Info & EDIT */}
       {isMemberInfoModalOpen && selectedMemberInfo && (
         <div style={styles.modal} onClick={()=>{setIsMemberInfoModalOpen(false); setIsEditMemberMode(false);}}>
