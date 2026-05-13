@@ -82,45 +82,48 @@ const AdminDashboard = () => {
     const r = roles[role?.toLowerCase()] || roles.customer;
     return (
       <span style={{
-        color: r.color,
-        backgroundColor: r.bg,
-        border: `1px solid ${r.color}`,
-        padding: '4px 12px',
-        borderRadius: '6px',
-        fontSize: '11px',
-        fontWeight: 'bold',
-        letterSpacing: '0.5px'
+        color: r.color, backgroundColor: r.bg, border: `1px solid ${r.color}`,
+        padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold'
       }}>
         {r.label}
       </span>
     );
   };
 
-  const handleUpdateTask = async (taskId) => {
-    const updates = editData[taskId] || {};
+  // แก้ไขฟังก์ชันบันทึกเพื่อป้องกัน Error Column Not Found
+  const handleUpdateTask = async (taskId, customUpdates = null) => {
+    const updates = customUpdates || editData[taskId] || {};
+    
+    // ตรวจสอบคอลัมน์ราคา (เผื่อใน DB ใช้ชื่อ price แทน repair_cost)
     const { error } = await supabase.from('repair_tasks').update(updates).eq('id', taskId);
-    if (error) alert('Error: ' + error.message);
-    else { 
+    
+    if (error) {
+        console.error(error);
+        alert('ไม่สามารถบันทึกได้: ' + error.message);
+    } else { 
       alert('บันทึกข้อมูลเรียบร้อยแล้ว'); 
       fetchData(); 
-      setEditData(prev => {
-        const newData = {...prev};
-        delete newData[taskId];
-        return newData;
-      });
+      if (!customUpdates) {
+          setEditData(prev => {
+            const newData = {...prev};
+            delete newData[taskId];
+            return newData;
+          });
+      }
+      setIsDetailModalOpen(false);
     }
   };
 
   const handleAddMember = async () => {
     if (!newMember.email || !newMember.full_name || !newMember.phone) {
-      alert('กรุณากรอกข้อมูลพื้นฐานให้ครบถ้วน (ชื่อ, เบอร์โทร, อีเมล)');
+      alert('กรุณากรอกข้อมูลพื้นฐานให้ครบถ้วน');
       return;
     }
     const autoUsername = newMember.email.split('@')[0] + Math.floor(1000 + Math.random() * 9000);
     const { error } = await supabase.from('profiles').insert([{ ...newMember, username: autoUsername }]);
     if (error) alert('เกิดข้อผิดพลาด: ' + error.message);
     else { 
-      alert('เพิ่มสมาชิกใหม่เข้าสู่ระบบเรียบร้อยแล้ว'); 
+      alert('เพิ่มสมาชิกใหม่เรียบร้อยแล้ว'); 
       setIsAddMemberOpen(false); 
       setNewMember({ full_name: '', phone: '', line_id: '', email: '', address: '', role: 'customer' });
       fetchData(); 
@@ -161,7 +164,7 @@ const AdminDashboard = () => {
     input: { backgroundColor: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '12px', borderRadius: '10px', width: '100%', marginBottom: '15px', outline: 'none', fontSize: '14px' },
     modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' },
     modalBody: { backgroundColor: '#0f0f0f', width: '95%', maxWidth: '550px', padding: '35px', borderRadius: '30px', border: '1px solid #222', maxHeight: '90vh', overflowY: 'auto' },
-    primaryBtn: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }
+    primaryBtn: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }
   };
 
   return (
@@ -171,7 +174,7 @@ const AdminDashboard = () => {
         <div style={styles.statCard}><small style={{color:'#888'}}>รอซ่อม</small><h2 style={{color:'#ffcc00'}}>{stats.pending}</h2></div>
         <div style={styles.statCard}><small style={{color:'#888'}}>กำลังซ่อม</small><h2 style={{color:'#00ccff'}}>{stats.doing}</h2></div>
         <div style={styles.statCard}><small style={{color:'#888'}}>เสร็จสิ้น</small><h2 style={{color:'#28a745'}}>{stats.done}</h2></div>
-        <div style={styles.statCard}><small style={{color:'#888'}}>สมาชิก</small><h2>{stats.allMembers}</h2></div>
+        <div style={styles.statCard}><small style={{color:'#888'}}>สมาชิกทั้งหมด</small><h2>{stats.allMembers}</h2></div>
       </div>
 
       <div style={styles.navTab}>
@@ -181,7 +184,6 @@ const AdminDashboard = () => {
 
       {activeTab === 'tasks' ? (
         <section>
-          {/* Task Content */}
           <div style={{display:'flex', justifyContent:'space-between', marginBottom:'20px'}}>
             <div style={{display:'flex', gap:'10px'}}>
               {['all', 'pending', 'in_progress', 'completed'].map(s => (
@@ -216,26 +218,33 @@ const AdminDashboard = () => {
                     <div style={{marginTop:'5px'}}>{getRoleBadge(t.profiles?.role)}</div>
                   </td>
                   <td style={styles.td}>
-                    <div style={{color:'#00ccff', cursor:'pointer', fontWeight:'bold'}} onClick={() => { setSelectedTask(t); setIsDetailModalOpen(true); }}>
+                    <div style={{color:'#00ccff', cursor:'pointer', fontWeight:'bold', fontSize:'16px'}} onClick={() => { setSelectedTask(t); setIsDetailModalOpen(true); }}>
                       🔍 {t.device_type}
                     </div>
                     <small style={{color:'#888'}}>📍 {t.brand} {t.model}</small>
                   </td>
                   <td style={styles.td}>
-                    <input type="number" style={{...styles.input, width:'80px', marginBottom:'5px', padding:'5px'}} value={editData[t.id]?.repair_cost ?? (t.repair_cost || 0)} onChange={e => setEditData({...editData, [t.id]:{...(editData[t.id]||{}), repair_cost: e.target.value}})} />
-                    <select style={{...styles.input, width:'auto', fontSize:'12px', padding:'5px'}} value={editData[t.id]?.payment_status || t.payment_status || 'ยังไม่ได้ชำระ'} onChange={e => setEditData({...editData, [t.id]:{...(editData[t.id]||{}), payment_status: e.target.value}})}>
+                    <input type="number" style={{...styles.input, width:'90px', marginBottom:'5px', padding:'5px'}} 
+                      value={editData[t.id]?.repair_cost ?? (t.repair_cost || 0)} 
+                      onChange={e => setEditData({...editData, [t.id]:{...(editData[t.id]||{}), repair_cost: e.target.value}})} 
+                    />
+                    <select style={{...styles.input, width:'auto', fontSize:'12px', padding:'5px'}} 
+                      value={editData[t.id]?.payment_status || t.payment_status || 'ยังไม่ได้ชำระ'} 
+                      onChange={e => setEditData({...editData, [t.id]:{...(editData[t.id]||{}), payment_status: e.target.value}})}>
                       <option value="ยังไม่ได้ชำระ">❌ ยังไม่ได้ชำระ</option>
                       <option value="ชำระแล้ว (เงินสด)">💵 เงินสด</option>
                       <option value="ชำระแล้ว (โอนผ่านบัญชี)">📱 โอนผ่านบัญชี</option>
                     </select>
                   </td>
                   <td style={styles.td}>
-                    <select style={{...styles.input, width:'auto', marginBottom:'5px', padding:'5px'}} value={editData[t.id]?.status || t.status} onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), status: e.target.value}})}>
+                    <select style={{...styles.input, width:'auto', marginBottom:'5px', padding:'5px'}} 
+                      value={editData[t.id]?.status || t.status} 
+                      onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), status: e.target.value}})}>
                       <option value="pending">⏳ รอรับงาน</option>
                       <option value="in_progress">⚙️ กำลังซ่อม</option>
                       <option value="completed">✅ เสร็จสิ้น</option>
                     </select>
-                    <button style={{...styles.primaryBtn, width:'100%', fontSize:'11px', padding:'8px'}} onClick={()=>handleUpdateTask(t.id)}>💾 บันทึก</button>
+                    <button style={{...styles.primaryBtn, width:'100%', fontSize:'12px', padding:'8px'}} onClick={()=>handleUpdateTask(t.id)}>💾 บันทึก</button>
                   </td>
                 </tr>
               ))}
@@ -244,9 +253,8 @@ const AdminDashboard = () => {
         </section>
       ) : (
         <section>
-          {/* Members Table */}
           <div style={{display:'flex', justifyContent:'space-between', marginBottom:'20px'}}>
-            <input style={{...styles.input, width:'300px'}} placeholder="🔍 ค้นหาสมาชิก (ชื่อ, อีเมล, เบอร์โทร)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input style={{...styles.input, width:'300px'}} placeholder="🔍 ค้นหาสมาชิก..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             <button style={{...styles.primaryBtn, backgroundColor:'#28a745'}} onClick={()=>setIsAddMemberOpen(true)}>+ เพิ่มสมาชิกใหม่</button>
           </div>
           <table style={styles.table}>
@@ -274,88 +282,61 @@ const AdminDashboard = () => {
         </section>
       )}
 
-      {/* Modal Add Member (New Professional Form) */}
+      {/* Modal Device Detail & Tech Note (เมื่อกดคลิกที่อุปกรณ์) */}
+      {isDetailModalOpen && selectedTask && (
+        <div style={styles.modal} onClick={()=>setIsDetailModalOpen(false)}>
+          <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
+            <h2 style={{color:'#00ccff', borderBottom:'1px solid #222', paddingBottom:'15px'}}>🛠 รายละเอียดการซ่อม</h2>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', marginTop:'20px'}}>
+                <div style={{gridColumn:'span 2'}}>
+                    <label style={styles.label}>อุปกรณ์ / อาการเสีย</label>
+                    <p style={{fontSize:'18px', fontWeight:'bold', color:'#fff', margin:'5px 0'}}>🔍 {selectedTask.device_type} ({selectedTask.brand} {selectedTask.model})</p>
+                    <p style={{color:'#aaa', backgroundColor:'#1a1a1a', padding:'15px', borderRadius:'10px'}}>{selectedTask.details || 'ไม่มีรายละเอียดอาการเสีย'}</p>
+                </div>
+                
+                <div style={{gridColumn:'span 2', marginTop:'10px'}}>
+                    <label style={{...styles.label, color:'#00ccff'}}>📝 บันทึกความเห็นจากช่าง (Technician Note)</label>
+                    <textarea 
+                        style={{...styles.input, height:'120px', border:'1px solid #00ccff', marginTop:'5px'}} 
+                        placeholder="ระบุความคืบหน้าการซ่อม อะไหล่ที่ใช้ หรือหมายเหตุเพิ่มเติม..."
+                        defaultValue={selectedTask.tech_note}
+                        onChange={(e) => setSelectedTask({...selectedTask, tech_note: e.target.value})}
+                    />
+                </div>
+            </div>
+            <div style={{display:'flex', gap:'15px', marginTop:'20px'}}>
+                <button style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} onClick={()=>setIsDetailModalOpen(false)}>ปิด</button>
+                <button 
+                    style={{...styles.primaryBtn, backgroundColor:'#00ccff', flex:2}} 
+                    onClick={() => handleUpdateTask(selectedTask.id, { tech_note: selectedTask.tech_note })}
+                >
+                    💾 บันทึกความเห็นช่าง
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Add Member */}
       {isAddMemberOpen && (
         <div style={styles.modal} onClick={()=>setIsAddMemberOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <div style={{borderBottom:'1px solid #222', paddingBottom:'20px', marginBottom:'25px', textAlign:'center'}}>
-                <h2 style={{margin:0, color:'#28a745'}}>👥 เพิ่มสมาชิกใหม่</h2>
-                <p style={{margin:'5px 0 0', color:'#666', fontSize:'14px'}}>กรอกข้อมูลสมาชิกเพื่อบันทึกลงในระบบ Promcare</p>
+            <h2 style={{color:'#28a745', textAlign:'center'}}>👥 เพิ่มสมาชิกใหม่</h2>
+            <label style={styles.label}>ชื่อ-นามสกุลสมาชิก *</label>
+            <input style={styles.input} placeholder="สมชาย มั่นคง" value={newMember.full_name} onChange={e=>setNewMember({...newMember, full_name: e.target.value})} />
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
+                <div><label style={styles.label}>เบอร์โทรศัพท์ *</label><input style={styles.input} placeholder="081XXXXXXX" value={newMember.phone} onChange={e=>setNewMember({...newMember, phone: e.target.value})} /></div>
+                <div><label style={styles.label}>Line ID</label><input style={styles.input} placeholder="ID" value={newMember.line_id} onChange={e=>setNewMember({...newMember, line_id: e.target.value})} /></div>
             </div>
-
-            <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'5px'}}>
-                <label style={styles.label}>ชื่อ-นามสกุลสมาชิก *</label>
-                <input 
-                  style={styles.input} 
-                  placeholder="ตัวอย่าง: สมชาย มั่นคง" 
-                  value={newMember.full_name}
-                  onChange={e=>setNewMember({...newMember, full_name: e.target.value})}
-                />
-
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
-                    <div>
-                        <label style={styles.label}>เบอร์โทรศัพท์ *</label>
-                        <input 
-                            style={styles.input} 
-                            placeholder="081XXXXXXX" 
-                            value={newMember.phone}
-                            onChange={e=>setNewMember({...newMember, phone: e.target.value})}
-                        />
-                    </div>
-                    <div>
-                        <label style={styles.label}>Line ID</label>
-                        <input 
-                            style={styles.input} 
-                            placeholder="Line ID (ถ้ามี)" 
-                            value={newMember.line_id}
-                            onChange={e=>setNewMember({...newMember, line_id: e.target.value})}
-                        />
-                    </div>
-                </div>
-
-                <label style={styles.label}>อีเมล (ใช้สำหรับเข้าสู่ระบบ) *</label>
-                <input 
-                    style={styles.input} 
-                    type="email"
-                    placeholder="example@gmail.com" 
-                    value={newMember.email}
-                    onChange={e=>setNewMember({...newMember, email: e.target.value})}
-                />
-
-                <label style={styles.label}>ระดับสิทธิ์การเข้าถึงระบบ</label>
-                <select 
-                    style={styles.input}
-                    value={newMember.role}
-                    onChange={e=>setNewMember({...newMember, role: e.target.value})}
-                >
-                    <option value="customer">CUSTOMER (ลูกค้า/สมาชิกทั่วไป)</option>
-                    <option value="technician">TECHNICIAN (ช่างซ่อมบำรุง)</option>
-                    <option value="admin">ADMIN (ผู้ดูแลระบบ)</option>
-                </select>
-
-                <label style={styles.label}>ที่อยู่สมาชิก</label>
-                <textarea 
-                    style={{...styles.input, height:'100px'}} 
-                    placeholder="ที่อยู่สำหรับจัดส่งหรือติดต่อ..."
-                    value={newMember.address}
-                    onChange={e=>setNewMember({...newMember, address: e.target.value})}
-                />
-            </div>
-
-            <div style={{display:'flex', gap:'15px', marginTop:'20px'}}>
-                <button 
-                  style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} 
-                  onClick={()=>setIsAddMemberOpen(false)}
-                >
-                  ยกเลิก
-                </button>
-                <button 
-                  style={{...styles.primaryBtn, backgroundColor:'#28a745', flex:2}} 
-                  onClick={handleAddMember}
-                >
-                  บันทึกและสร้างสมาชิก
-                </button>
-            </div>
+            <label style={styles.label}>อีเมล (ใช้เข้าสู่ระบบ) *</label>
+            <input style={styles.input} type="email" placeholder="example@gmail.com" value={newMember.email} onChange={e=>setNewMember({...newMember, email: e.target.value})} />
+            <label style={styles.label}>ระดับสิทธิ์</label>
+            <select style={styles.input} value={newMember.role} onChange={e=>setNewMember({...newMember, role: e.target.value})}>
+                <option value="customer">CUSTOMER</option>
+                <option value="technician">TECHNICIAN</option>
+                <option value="admin">ADMIN</option>
+            </select>
+            <button style={{...styles.primaryBtn, backgroundColor:'#28a745', width:'100%', marginTop:'10px'}} onClick={handleAddMember}>บันทึกข้อมูลสมาชิก</button>
           </div>
         </div>
       )}
@@ -369,7 +350,7 @@ const AdminDashboard = () => {
                <h3 style={{marginTop:'15px', color:'#fff'}}>{selectedMemberInfo.full_name}</h3>
             </div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', borderTop:'1px solid #222', paddingTop:'20px'}}>
-              <div><small style={{color:'#666'}}>เบอร์โทรศัพท์</small><p>{selectedMemberInfo.phone || '-'}</p></div>
+              <div><small style={{color:'#666'}}>เบอร์โทร</small><p>{selectedMemberInfo.phone || '-'}</p></div>
               <div><small style={{color:'#666'}}>Line ID</small><p>{selectedMemberInfo.line_id || '-'}</p></div>
               <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>อีเมล</small><p>{selectedMemberInfo.email}</p></div>
               <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>ที่อยู่</small><p>{selectedMemberInfo.address || '-'}</p></div>
@@ -388,14 +369,10 @@ const AdminDashboard = () => {
               <option value="">-- เลือกสมาชิก --</option>
               {members.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.phone})</option>)}
             </select>
-            <input style={styles.input} placeholder="ประเภทอุปกรณ์" onChange={e=>setNewTask({...newTask, device_type: e.target.value})} />
+            <input style={styles.input} placeholder="ประเภทอุปกรณ์ (เช่น คอมพิวเตอร์)" onChange={e=>setNewTask({...newTask, device_type: e.target.value})} />
             <div style={{display:'flex', gap:'10px'}}>
               <input style={styles.input} placeholder="ยี่ห้อ" onChange={e=>setNewTask({...newTask, brand: e.target.value})} />
               <input style={styles.input} placeholder="รุ่น" onChange={e=>setNewTask({...newTask, model: e.target.value})} />
-            </div>
-            <div style={{display:'flex', gap:'10px'}}>
-              <input style={styles.input} placeholder="สี" onChange={e=>setNewTask({...newTask, color: e.target.value})} />
-              <input style={styles.input} placeholder="ทะเบียน/Serial" onChange={e=>setNewTask({...newTask, plate_number: e.target.value})} />
             </div>
             <textarea style={{...styles.input, height:'80px'}} placeholder="อาการเสีย..." onChange={e=>setNewTask({...newTask, details: e.target.value})} />
             <button style={{...styles.primaryBtn, width:'100%', backgroundColor:'#00ccff'}} onClick={handleCreateNewTask}>ยืนยันเปิดใบงาน</button>
