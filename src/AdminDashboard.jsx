@@ -26,7 +26,7 @@ const AdminDashboard = () => {
     full_name: '', phone: '', line_id: '', email: '', address: '', role: 'customer'
   });
   const [newTask, setNewTask] = useState({
-    member_id: '', device_type: '', brand: '', model: '', color: '', plate_number: '', details: '', status: 'pending', price: 0, payment_status: 'ยังไม่ได้ชำระ'
+    member_id: '', device_type: '', brand: '', model: '', details: '', status: 'pending', price: 0, payment_status: 'ยังไม่ได้ชำระ'
   });
 
   useEffect(() => {
@@ -120,11 +120,9 @@ const AdminDashboard = () => {
   };
 
   const handleUpdateMember = async () => {
-    if (!selectedMemberInfo) return;
     const { error } = await supabase.from('profiles').update(memberEditData).eq('id', selectedMemberInfo.id);
-    
     if (error) {
-      alert('แก้ไขข้อมูลล้มเหลว: ' + error.message);
+      alert('แก้ไขล้มเหลว: ' + error.message);
     } else {
       alert('อัปเดตข้อมูลสมาชิกเรียบร้อยแล้ว');
       setIsEditMemberMode(false);
@@ -134,15 +132,12 @@ const AdminDashboard = () => {
   };
 
   const handleAddMember = async () => {
-    if (!newMember.email || !newMember.full_name || !newMember.phone) {
-      alert('กรุณากรอกข้อมูลพื้นฐานให้ครบถ้วน');
-      return;
-    }
+    if (!newMember.email || !newMember.full_name) return alert('กรุณากรอกข้อมูลให้ครบ');
     const autoUsername = newMember.email.split('@')[0] + Math.floor(1000 + Math.random() * 9000);
     const { error } = await supabase.from('profiles').insert([{ ...newMember, username: autoUsername }]);
-    if (error) alert('เกิดข้อผิดพลาด: ' + error.message);
+    if (error) alert('Error: ' + error.message);
     else { 
-      alert('เพิ่มสมาชิกใหม่เรียบร้อยแล้ว'); 
+      alert('เพิ่มสมาชิกสำเร็จ'); 
       setIsAddMemberOpen(false); 
       setNewMember({ full_name: '', phone: '', line_id: '', email: '', address: '', role: 'customer' });
       fetchData(); 
@@ -150,16 +145,12 @@ const AdminDashboard = () => {
   };
 
   const handleCreateNewTask = async () => {
-    if (!newTask.member_id || !newTask.device_type) {
-      alert('กรุณาเลือกสมาชิกและระบุอุปกรณ์');
-      return;
-    }
     const { error } = await supabase.from('repair_tasks').insert([newTask]);
     if (error) alert('Error: ' + error.message);
     else {
-      alert('เปิดใบสั่งซ่อมใหม่สำเร็จ');
+      alert('เปิดใบงานสำเร็จ');
       setIsNewTaskModalOpen(false);
-      setNewTask({ member_id: '', device_type: '', brand: '', model: '', color: '', plate_number: '', details: '', status: 'pending', price: 0, payment_status: 'ยังไม่ได้ชำระ' });
+      setNewTask({ member_id: '', device_type: '', brand: '', model: '', details: '', status: 'pending', price: 0, payment_status: 'ยังไม่ได้ชำระ' });
       fetchData();
     }
   };
@@ -179,22 +170,22 @@ const AdminDashboard = () => {
     table: { width: '100%', borderCollapse: 'separate', borderSpacing: '0 12px' },
     tr: { backgroundColor: '#0a0a0a' },
     td: { padding: '18px 20px', borderBottom: '1px solid #111' },
-    label: { display: 'block', fontSize: '13px', color: '#888', marginBottom: '5px', marginLeft: '5px' },
-    input: { backgroundColor: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '12px', borderRadius: '10px', width: '100%', marginBottom: '15px', outline: 'none', fontSize: '14px' },
-    modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' },
-    modalBody: { backgroundColor: '#0f0f0f', width: '95%', maxWidth: '550px', padding: '35px', borderRadius: '30px', border: '1px solid #222', maxHeight: '90vh', overflowY: 'auto' },
-    primaryBtn: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' },
-    statusBadge: (bg, color) => ({ backgroundColor: bg, color: color, padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', marginRight: '5px', display: 'inline-block' })
+    label: { display: 'block', fontSize: '13px', color: '#888', marginBottom: '5px' },
+    input: { backgroundColor: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '12px', borderRadius: '10px', width: '100%', marginBottom: '15px', outline: 'none' },
+    modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+    modalBody: { backgroundColor: '#0f0f0f', width: '90%', maxWidth: '500px', padding: '30px', borderRadius: '25px', border: '1px solid #222' },
+    primaryBtn: { backgroundColor: '#ff4d4d', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' },
+    badge: (bg, color) => ({ backgroundColor: bg, color: color, padding: '3px 8px', borderRadius: '5px', fontSize: '10px', fontWeight: 'bold', marginRight: '5px', display: 'inline-block', marginBottom: '5px' })
   };
 
   return (
     <div style={styles.container}>
-      {/* Stats Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '35px' }}>
-        <div style={styles.statCard}><small style={{color:'#888'}}>รอซ่อม</small><h2 style={{color:'#ffcc00'}}>{stats.pending}</h2></div>
+      {/* Stats Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '35px' }}>
+        <div style={styles.statCard}><small style={{color:'#888'}}>รอรับงาน</small><h2 style={{color:'#ffcc00'}}>{stats.pending}</h2></div>
         <div style={styles.statCard}><small style={{color:'#888'}}>กำลังซ่อม</small><h2 style={{color:'#00ccff'}}>{stats.doing}</h2></div>
         <div style={styles.statCard}><small style={{color:'#888'}}>เสร็จสิ้น</small><h2 style={{color:'#28a745'}}>{stats.done}</h2></div>
-        <div style={styles.statCard}><small style={{color:'#888'}}>สมาชิกทั้งหมด</small><h2>{stats.allMembers}</h2></div>
+        <div style={styles.statCard}><small style={{color:'#888'}}>สมาชิก</small><h2>{stats.allMembers}</h2></div>
       </div>
 
       <div style={styles.navTab}>
@@ -205,21 +196,21 @@ const AdminDashboard = () => {
       {activeTab === 'tasks' ? (
         <section>
           <div style={{display:'flex', justifyContent:'space-between', marginBottom:'20px'}}>
-            <div style={{display:'flex', gap:'10px'}}>
-              {['all', 'pending', 'in_progress', 'completed'].map(s => (
-                <button key={s} onClick={() => setFilterStatus(s)} style={{padding:'8px 15px', borderRadius:'20px', border: filterStatus===s?'1px solid #ff4d4d':'1px solid #333', color: filterStatus===s?'#ff4d4d':'#888', cursor:'pointer', background:'none'}}>
-                  {s === 'all' ? 'ทั้งหมด' : s === 'pending' ? 'รอซ่อม' : s === 'in_progress' ? 'กำลังซ่อม' : 'เสร็จสิ้น'}
-                </button>
-              ))}
-            </div>
-            <button style={{...styles.primaryBtn, backgroundColor:'#00ccff'}} onClick={() => setIsNewTaskModalOpen(true)}>+ เปิดใบแจ้งซ่อมใหม่</button>
+             <div style={{display:'flex', gap:'10px'}}>
+                {['all', 'pending', 'in_progress', 'completed'].map(s => (
+                  <button key={s} onClick={() => setFilterStatus(s)} style={{padding:'8px 15px', borderRadius:'20px', border: filterStatus===s?'1px solid #ff4d4d':'1px solid #333', color: filterStatus===s?'#ff4d4d':'#888', background:'none', cursor:'pointer'}}>
+                    {s === 'all' ? 'ทั้งหมด' : s === 'pending' ? 'รอรับงาน' : s === 'in_progress' ? 'กำลังซ่อม' : 'เสร็จสิ้น'}
+                  </button>
+                ))}
+             </div>
+             <button style={{...styles.primaryBtn, backgroundColor:'#00ccff'}} onClick={() => setIsNewTaskModalOpen(true)}>+ เปิดใบแจ้งซ่อมใหม่</button>
           </div>
 
           <table style={styles.table}>
             <thead>
               <tr style={{color:'#555', fontSize:'13px', textAlign:'left'}}>
                 <th>วัน-เวลา / ผู้แจ้ง</th>
-                <th>อุปกรณ์</th>
+                <th>อุปกรณ์ / สถานะยืนยัน</th>
                 <th>ราคา / การชำระเงิน</th>
                 <th>สถานะ / บันทึก</th>
               </tr>
@@ -229,32 +220,29 @@ const AdminDashboard = () => {
                 <tr key={t.id} style={styles.tr}>
                   <td style={styles.td}>
                     <small style={{color:'#666'}}>{formatThaiDate(t.created_at)}</small><br/>
-                    <strong 
-                      style={{color:'#00ccff', cursor:'pointer', textDecoration:'underline', display:'inline-block', marginTop:'5px'}}
-                      onClick={() => { setSelectedMemberInfo(t.profiles); setIsMemberInfoModalOpen(true); }}
-                    >
+                    <strong style={{color:'#00ccff', cursor:'pointer'}} onClick={() => { setSelectedMemberInfo(t.profiles); setIsMemberInfoModalOpen(true); }}>
                       {t.profiles?.full_name || t.guest_name || 'ไม่ระบุชื่อ'}
                     </strong>
                     <div style={{marginTop:'5px'}}>{getRoleBadge(t.profiles?.role)}</div>
                   </td>
                   <td style={styles.td}>
-                    {/* ส่วนแจ้งเตือนแอดมิน */}
-                    <div style={{marginBottom:'8px'}}>
-                        {t.customer_confirm === 'confirmed' && <span style={styles.statusBadge('rgba(40,167,69,0.2)', '#28a745')}>✓ ลูกค้ายืนยันซ่อม</span>}
-                        {t.customer_confirm === 'rejected' && <span style={styles.statusBadge('rgba(220,53,69,0.2)', '#dc3545')}>✗ ลูกค้าปฏิเสธ</span>}
-                        {t.customer_payment_notified && <span style={styles.statusBadge('rgba(0,123,255,0.2)', '#007bff')}>💰 ลูกค้าแจ้งโอนแล้ว</span>}
+                    {/* ส่วนแสดงสถานะยืนยันและแจ้งโอน */}
+                    <div style={{marginBottom:'5px'}}>
+                        {t.customer_confirm === 'confirmed' && <span style={styles.badge('rgba(40,167,69,0.2)', '#28a745')}>✓ ยืนยันซ่อม</span>}
+                        {t.customer_confirm === 'rejected' && <span style={styles.badge('rgba(220,53,69,0.2)', '#dc3545')}>✗ ปฏิเสธซ่อม</span>}
+                        {t.customer_payment_notified && <span style={styles.badge('rgba(0,123,255,0.2)', '#007bff')}>💰 แจ้งโอนแล้ว</span>}
                     </div>
-                    <div style={{color:'#00ccff', cursor:'pointer', fontWeight:'bold', fontSize:'16px'}} onClick={() => { setSelectedTask(t); setIsDetailModalOpen(true); }}>
+                    <div style={{color:'#00ccff', fontWeight:'bold', cursor:'pointer'}} onClick={() => { setSelectedTask(t); setIsDetailModalOpen(true); }}>
                       🔍 {t.device_type}
                     </div>
-                    <small style={{color:'#888'}}>📍 {t.brand} {t.model}</small>
+                    <small style={{color:'#888'}}>{t.brand} {t.model}</small>
                   </td>
                   <td style={styles.td}>
-                    <input type="number" style={{...styles.input, width:'90px', marginBottom:'5px', padding:'5px'}} 
+                    <input type="number" style={{...styles.input, width:'90px', padding:'5px', marginBottom:'5px'}} 
                       value={editData[t.id]?.price ?? (t.price || 0)} 
                       onChange={e => setEditData({...editData, [t.id]:{...(editData[t.id]||{}), price: e.target.value}})} 
                     />
-                    <select style={{...styles.input, width:'auto', fontSize:'12px', padding:'5px'}} 
+                    <select style={{...styles.input, width:'130px', fontSize:'12px', padding:'5px'}} 
                       value={editData[t.id]?.payment_status || t.payment_status || 'ยังไม่ได้ชำระ'} 
                       onChange={e => setEditData({...editData, [t.id]:{...(editData[t.id]||{}), payment_status: e.target.value}})}>
                       <option value="ยังไม่ได้ชำระ">❌ ยังไม่ได้ชำระ</option>
@@ -263,12 +251,12 @@ const AdminDashboard = () => {
                     </select>
                   </td>
                   <td style={styles.td}>
-                    <select style={{...styles.input, width:'auto', marginBottom:'5px', padding:'5px'}} 
+                    <select style={{...styles.input, width:'110px', padding:'5px', marginBottom:'5px'}} 
                       value={editData[t.id]?.status || t.status} 
                       onChange={e=>setEditData({...editData, [t.id]:{...(editData[t.id]||{}), status: e.target.value}})}>
-                      <option value="pending">⏳ รอรับงาน</option>
-                      <option value="in_progress">⚙️ กำลังซ่อม</option>
-                      <option value="completed">✅ เสร็จสิ้น</option>
+                      <option value="pending">รอรับงาน</option>
+                      <option value="in_progress">กำลังซ่อม</option>
+                      <option value="completed">เสร็จสิ้น</option>
                     </select>
                     <button style={{...styles.primaryBtn, width:'100%', fontSize:'12px', padding:'8px'}} onClick={()=>handleUpdateTask(t.id)}>💾 บันทึก</button>
                   </td>
@@ -287,7 +275,7 @@ const AdminDashboard = () => {
             <thead>
               <tr style={{color:'#555', fontSize:'13px', textAlign:'left'}}>
                 <th>ชื่อ-นามสกุล / อีเมล</th>
-                <th>สถานะสมาชิก</th>
+                <th>สิทธิ์</th>
                 <th>เบอร์โทร / Line</th>
                 <th>จัดการ</th>
               </tr>
@@ -308,14 +296,11 @@ const AdminDashboard = () => {
         </section>
       )}
 
-      {/* Modal Member Info & EDIT */}
+      {/* Modal ดู/แก้ไขสมาชิก */}
       {isMemberInfoModalOpen && selectedMemberInfo && (
         <div style={styles.modal} onClick={()=>{setIsMemberInfoModalOpen(false); setIsEditMemberMode(false);}}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <div style={{textAlign:'center', marginBottom:'20px'}}>
-               {getRoleBadge(selectedMemberInfo.role)}
-               <h3 style={{marginTop:'15px', color:'#fff'}}>{isEditMemberMode ? '📝 แก้ไขข้อมูลสมาชิก' : selectedMemberInfo.full_name}</h3>
-            </div>
+            <h3 style={{color:'#fff', marginBottom:'20px', textAlign:'center'}}>{isEditMemberMode ? '📝 แก้ไขข้อมูล' : '👤 ข้อมูลสมาชิก'}</h3>
             
             {isEditMemberMode ? (
               <div>
@@ -329,92 +314,59 @@ const AdminDashboard = () => {
                 <textarea style={{...styles.input, height:'80px'}} value={memberEditData.address} onChange={e=>setMemberEditData({...memberEditData, address: e.target.value})} />
               </div>
             ) : (
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', borderTop:'1px solid #222', paddingTop:'20px'}}>
-                <div><small style={{color:'#666'}}>เบอร์โทร</small><p>{selectedMemberInfo.phone || '-'}</p></div>
-                <div><small style={{color:'#666'}}>Line ID</small><p>{selectedMemberInfo.line_id || '-'}</p></div>
-                <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>อีเมล</small><p>{selectedMemberInfo.email}</p></div>
-                <div style={{gridColumn:'span 2'}}><small style={{color:'#666'}}>ที่อยู่</small><p>{selectedMemberInfo.address || '-'}</p></div>
+              <div style={{color:'#ccc'}}>
+                <p><strong>ชื่อ:</strong> {selectedMemberInfo.full_name}</p>
+                <p><strong>อีเมล:</strong> {selectedMemberInfo.email}</p>
+                <p><strong>เบอร์โทร:</strong> {selectedMemberInfo.phone || '-'}</p>
+                <p><strong>Line:</strong> {selectedMemberInfo.line_id || '-'}</p>
+                <p><strong>ที่อยู่:</strong> {selectedMemberInfo.address || '-'}</p>
               </div>
             )}
 
             <div style={{display:'flex', gap:'10px', marginTop:'20px'}}>
               <button style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} onClick={()=>{setIsMemberInfoModalOpen(false); setIsEditMemberMode(false);}}>ปิด</button>
               {isEditMemberMode ? (
-                <button style={{...styles.primaryBtn, backgroundColor:'#28a745', flex:2}} onClick={handleUpdateMember}>💾 ยืนยันการอัปเดต</button>
+                <button style={{...styles.primaryBtn, backgroundColor:'#28a745', flex:1}} onClick={handleUpdateMember}>💾 บันทึกการแก้ไข</button>
               ) : (
-                <button style={{...styles.primaryBtn, backgroundColor:'#00ccff', flex:2}} onClick={()=>setIsEditMemberMode(true)}>✏️ แก้ไขข้อมูล</button>
+                <button style={{...styles.primaryBtn, backgroundColor:'#00ccff', flex:1}} onClick={()=>setIsEditMemberMode(true)}>✏️ แก้ไขข้อมูล</button>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Device Detail (เหมือนเดิม) */}
+      {/* Modal รายละเอียดการซ่อม */}
       {isDetailModalOpen && selectedTask && (
         <div style={styles.modal} onClick={()=>setIsDetailModalOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <h2 style={{color:'#00ccff', borderBottom:'1px solid #222', paddingBottom:'15px'}}>🛠 รายละเอียดการซ่อม</h2>
-            <div style={{marginTop:'20px'}}>
-                <label style={styles.label}>อุปกรณ์ / อาการเสีย</label>
-                <p style={{fontSize:'18px', fontWeight:'bold', color:'#fff', margin:'5px 0'}}>🔍 {selectedTask.device_type} ({selectedTask.brand} {selectedTask.model})</p>
-                <p style={{color:'#aaa', backgroundColor:'#1a1a1a', padding:'15px', borderRadius:'10px'}}>{selectedTask.details || 'ไม่มีรายละเอียดอาการเสีย'}</p>
-                
-                <label style={{...styles.label, color:'#00ccff', marginTop:'20px'}}>📝 บันทึกความเห็นจากช่าง</label>
-                <textarea 
-                    style={{...styles.input, height:'120px', border:'1px solid #00ccff', marginTop:'5px'}} 
-                    placeholder="ระบุความคืบหน้าการซ่อม หรือหมายเหตุเพิ่มเติม..."
-                    defaultValue={selectedTask.technician_comment}
-                    onChange={(e) => setSelectedTask({...selectedTask, technician_comment: e.target.value})}
-                />
-            </div>
-            <div style={{display:'flex', gap:'15px', marginTop:'20px'}}>
-                <button style={{...styles.primaryBtn, backgroundColor:'#333', flex:1}} onClick={()=>setIsDetailModalOpen(false)}>ปิด</button>
-                <button style={{...styles.primaryBtn, backgroundColor:'#00ccff', flex:2}} onClick={() => handleUpdateTask(selectedTask.id, { technician_comment: selectedTask.technician_comment })}>💾 บันทึกความเห็นช่าง</button>
-            </div>
+            <h3 style={{color:'#00ccff'}}>🛠 รายละเอียดอุปกรณ์</h3>
+            <p><strong>อุปกรณ์:</strong> {selectedTask.device_type}</p>
+            <p><strong>ยี่ห้อ/รุ่น:</strong> {selectedTask.brand} {selectedTask.model}</p>
+            <label style={styles.label}>อาการเสีย / รายละเอียดเพิ่มเติม</label>
+            <div style={{backgroundColor:'#1a1a1a', padding:'15px', borderRadius:'10px', marginBottom:'15px', color:'#aaa'}}>{selectedTask.details || '-'}</div>
+            
+            <label style={styles.label}>บันทึกจากช่าง (Technician Comment)</label>
+            <textarea style={{...styles.input, height:'100px'}} defaultValue={selectedTask.technician_comment} onChange={(e) => setSelectedTask({...selectedTask, technician_comment: e.target.value})} />
+            
+            <button style={{...styles.primaryBtn, width:'100%', backgroundColor:'#00ccff'}} onClick={() => handleUpdateTask(selectedTask.id, { technician_comment: selectedTask.technician_comment })}>💾 บันทึกบันทึกช่าง</button>
           </div>
         </div>
       )}
 
-      {/* Modal Add Member (เหมือนเดิม) */}
+      {/* Modal เพิ่มสมาชิกใหม่ */}
       {isAddMemberOpen && (
         <div style={styles.modal} onClick={()=>setIsAddMemberOpen(false)}>
           <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <h2 style={{color:'#28a745', textAlign:'center'}}>👥 เพิ่มสมาชิกใหม่</h2>
-            <label style={styles.label}>ชื่อ-นามสกุลสมาชิก *</label>
-            <input style={styles.input} placeholder="สมชาย มั่นคง" value={newMember.full_name} onChange={e=>setNewMember({...newMember, full_name: e.target.value})} />
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
-                <div><label style={styles.label}>เบอร์โทรศัพท์ *</label><input style={styles.input} placeholder="081XXXXXXX" value={newMember.phone} onChange={e=>setNewMember({...newMember, phone: e.target.value})} /></div>
-                <div><label style={styles.label}>Line ID</label><input style={styles.input} placeholder="ID" value={newMember.line_id} onChange={e=>setNewMember({...newMember, line_id: e.target.value})} /></div>
-            </div>
-            <label style={styles.label}>อีเมล (ใช้เข้าสู่ระบบ) *</label>
-            <input style={styles.input} type="email" placeholder="example@gmail.com" value={newMember.email} onChange={e=>setNewMember({...newMember, email: e.target.value})} />
-            <label style={styles.label}>ระดับสิทธิ์</label>
+            <h3 style={{color:'#28a745'}}>👥 เพิ่มสมาชิกใหม่</h3>
+            <input style={styles.input} placeholder="ชื่อ-นามสกุล" value={newMember.full_name} onChange={e=>setNewMember({...newMember, full_name: e.target.value})} />
+            <input style={styles.input} placeholder="อีเมล" value={newMember.email} onChange={e=>setNewMember({...newMember, email: e.target.value})} />
+            <input style={styles.input} placeholder="เบอร์โทร" value={newMember.phone} onChange={e=>setNewMember({...newMember, phone: e.target.value})} />
             <select style={styles.input} value={newMember.role} onChange={e=>setNewMember({...newMember, role: e.target.value})}>
                 <option value="customer">CUSTOMER</option>
                 <option value="technician">TECHNICIAN</option>
                 <option value="admin">ADMIN</option>
             </select>
-            <button style={{...styles.primaryBtn, backgroundColor:'#28a745', width:'100%', marginTop:'10px'}} onClick={handleAddMember}>บันทึกข้อมูลสมาชิก</button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal New Task (เหมือนเดิม) */}
-      {isNewTaskModalOpen && (
-        <div style={styles.modal} onClick={()=>setIsNewTaskModalOpen(false)}>
-          <div style={styles.modalBody} onClick={e=>e.stopPropagation()}>
-            <h3 style={{color:'#00ccff'}}>🛠 เปิดใบแจ้งซ่อมใหม่</h3>
-            <select style={styles.input} onChange={e=>setNewTask({...newTask, member_id: e.target.value})}>
-              <option value="">-- เลือกสมาชิก --</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.phone})</option>)}
-            </select>
-            <input style={styles.input} placeholder="ประเภทอุปกรณ์ (เช่น คอมพิวเตอร์)" onChange={e=>setNewTask({...newTask, device_type: e.target.value})} />
-            <div style={{display:'flex', gap:'10px'}}>
-              <input style={styles.input} placeholder="ยี่ห้อ" onChange={e=>setNewTask({...newTask, brand: e.target.value})} />
-              <input style={styles.input} placeholder="รุ่น" onChange={e=>setNewTask({...newTask, model: e.target.value})} />
-            </div>
-            <textarea style={{...styles.input, height:'80px'}} placeholder="อาการเสีย..." onChange={e=>setNewTask({...newTask, details: e.target.value})} />
-            <button style={{...styles.primaryBtn, width:'100%', backgroundColor:'#00ccff'}} onClick={handleCreateNewTask}>ยืนยันเปิดใบงาน</button>
+            <button style={{...styles.primaryBtn, width:'100%', backgroundColor:'#28a745'}} onClick={handleAddMember}>บันทึกสมาชิก</button>
           </div>
         </div>
       )}
